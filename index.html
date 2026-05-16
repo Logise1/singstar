@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SingStar AI - Pro Edition</title>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #030305;
+            color: white;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        .glass {
+            background: rgba(20, 20, 30, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .text-gradient-cyan {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .text-gradient-pink {
+            background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(0, 242, 254, 0.5);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.15);
+            outline: none;
+        }
+
+        .glass-button {
+            background: linear-gradient(135deg, rgba(0, 242, 254, 0.15) 0%, rgba(79, 172, 254, 0.15) 100%);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            transition: all 0.3s;
+        }
+
+        .glass-button:hover {
+            background: linear-gradient(135deg, rgba(0, 242, 254, 0.3) 0%, rgba(79, 172, 254, 0.3) 100%);
+            transform: translateY(-2px);
+        }
+
+        #bg-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+            transition: filter 1.5s ease;
+        }
+
+        .video-dimmed {
+            filter: brightness(0.2) blur(4px) saturate(0.6);
+        }
+
+        #pitch-canvas {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40vh;
+            background: linear-gradient(to top, rgba(0, 20, 40, 0.8), transparent);
+            border-top: 1px solid rgba(0, 242, 254, 0.3);
+            backdrop-filter: blur(2px);
+        }
+
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.05);
+            border-left-color: #00f2fe;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .carousel-container {
+            display: flex;
+            overflow: hidden;
+            width: 100vw;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+            height: 60vh;
+        }
+        .carousel-track {
+            display: flex;
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            align-items: center;
+            gap: 32px;
+            will-change: transform;
+        }
+        .song-card {
+            width: 320px;
+            height: 320px;
+            border-radius: 20px;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            opacity: 0.4;
+            transform: scale(0.75);
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 4px solid transparent;
+            flex-shrink: 0;
+            background: #111;
+        }
+        .song-card.selected {
+            opacity: 1;
+            transform: scale(1.15);
+            border-color: #00f2fe;
+            box-shadow: 0 0 50px rgba(0, 242, 254, 0.4), 0 0 15px rgba(0, 242, 254, 0.8) inset;
+            z-index: 10;
+        }
+        .song-card img {
+            width: 100%;
+            height: 70%;
+            object-fit: cover;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+        .song-card .info {
+            height: 30%;
+            background: linear-gradient(to top, #0a0a0f, #1a1a24);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+            font-weight: 800;
+            font-size: 1.15rem;
+            line-height: 1.2;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="bg-video" class="absolute inset-0 w-full h-full z-[-1] transition-all duration-1500 pointer-events-none"></div>
+
+    <!-- UI 0: Start Screen -->
+    <div id="ui-start" class="absolute inset-0 flex flex-col items-center justify-center bg-black z-50 transition-opacity duration-1000">
+        <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-30"></div>
+        <h1 class="text-9xl font-black mb-16 text-center uppercase tracking-tighter text-gradient-cyan drop-shadow-[0_0_50px_rgba(0,242,254,0.6)] animate-pulse z-10" style="font-size: 12vw;">
+            SingStar
+        </h1>
+        <button onclick="startGameMenu()" class="glass-button px-20 py-6 text-4xl font-black rounded-full text-white tracking-widest hover:scale-110 transition-transform shadow-[0_0_40px_rgba(255,8,68,0.6)] z-10 border-pink-500/50 hover:bg-pink-500/20">
+            START!
+        </button>
+    </div>
+
+    <!-- UI 1: Catalog (Switch Style) -->
+    <div id="ui-search" class="hidden absolute inset-0 flex flex-col items-center bg-black/80 backdrop-blur-xl z-20 transition-opacity duration-500">
+        
+        <!-- Mobile Connect Banner -->
+        <div class="absolute top-8 w-full px-12 flex items-center justify-between z-30">
+            <h2 class="text-4xl font-black uppercase tracking-[0.2em] text-gradient-pink drop-shadow-lg">SingStar Pro</h2>
+            <div class="bg-indigo-900/80 border border-indigo-500/50 rounded-2xl p-4 flex items-center gap-6 shadow-2xl backdrop-blur-md">
+                <div id="qrcode" class="bg-white p-2 rounded-xl shadow-lg transition-transform hover:scale-150 origin-top-right cursor-pointer"></div>
+                <div class="flex flex-col gap-2">
+                    <span class="text-sm font-bold text-indigo-200">ESCANEA PARA USAR TU MÓVIL COMO MICRO:</span>
+                    <div class="flex gap-4 items-center">
+                        <strong class="text-cyan-400 text-xs hidden" id="mobile-url"></strong>
+                        <div id="mic-status" class="px-4 py-2 bg-black/60 rounded-full text-xs font-bold text-gray-400 border border-white/10 flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse" id="mic-dot"></div> <span id="mic-status-text">Esperando conexión...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carousel -->
+        <div class="carousel-container mt-[15vh]" id="carousel-container">
+            <div class="carousel-track" id="carousel-track"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="absolute bottom-16 flex flex-col items-center gap-6 z-30">
+            <button onclick="selectCurrentSong()" class="glass-button px-16 py-6 text-3xl font-black rounded-full text-white tracking-widest hover:scale-110 transition-transform shadow-[0_0_30px_rgba(0,242,254,0.5)] flex items-center gap-4 border-cyan-500/50 bg-cyan-900/20">
+                ▶ JUGAR
+            </button>
+            <div class="text-gray-400 font-bold tracking-widest text-sm flex gap-8">
+                <span class="flex items-center gap-2"><div class="px-2 py-1 bg-white/10 rounded border border-white/20">⬅</div> <div class="px-2 py-1 bg-white/10 rounded border border-white/20">➡</div> NAVEGAR</span>
+                <span class="flex items-center gap-2"><div class="px-2 py-1 bg-white/10 rounded border border-white/20">ENTER</div> SELECCIONAR</span>
+            </div>
+        </div>
+
+        <!-- Invisible YT Player -->
+        <div id="yt-player" class="hidden"></div>
+    </div>
+
+    <!-- UI 2: Cargando -->
+    <div id="ui-loading"
+        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-20 pointer-events-none">
+        <div class="glass p-10 rounded-3xl flex flex-col items-center min-w-[400px]">
+            <div class="loader mb-6"></div>
+            <h2 class="text-2xl font-bold text-gradient-cyan text-center mb-2" id="loading-title">Procesando con IA</h2>
+            <p class="text-gray-300 text-center text-sm font-semibold" id="loading-desc">Demucs está separando la música
+                (Esto tarda unos minutos)...</p>
+        </div>
+    </div>
+
+    <!-- UI 2.5: Configuración de Tiempo -->
+    <div id="ui-setup"
+        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20">
+        <div class="glass p-10 rounded-3xl w-full max-w-lg flex flex-col items-center shadow-2xl">
+            <h2 class="text-3xl font-black text-center uppercase tracking-widest text-gradient-cyan mb-6">Configurar
+                Prueba</h2>
+            <p class="text-gray-400 mb-6 text-center text-sm">Elige en qué segundo quieres empezar y terminar de cantar.
+            </p>
+            <div class="flex gap-6 w-full mb-8">
+                <div class="w-1/2 flex flex-col">
+                    <label class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Inicio
+                        (s)</label>
+                    <input type="number" id="setup-start"
+                        class="glass-input px-4 py-3 rounded-xl text-2xl text-center font-mono text-cyan-400" value="0"
+                        min="0">
+                </div>
+                <div class="w-1/2 flex flex-col">
+                    <label class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Fin
+                        (s)</label>
+                    <input type="number" id="setup-end"
+                        class="glass-input px-4 py-3 rounded-xl text-2xl text-center font-mono text-pink-400" value="60"
+                        min="5">
+                </div>
+            </div>
+            <button onclick="startConfiguredGame()"
+                class="glass-button w-full py-4 font-black uppercase tracking-widest rounded-2xl text-white text-lg hover:shadow-[0_0_20px_rgba(0,242,254,0.4)]">¡A
+                Cantar!</button>
+        </div>
+    </div>
+
+    <!-- UI 3: Juego -->
+    <div id="ui-game" class="hidden absolute inset-0 z-10">
+        <!-- Barra de Progreso Superior -->
+        <div class="absolute top-6 left-1/2 transform -translate-x-1/2 w-3/4 max-w-3xl z-20 flex flex-col items-center">
+            <span id="time-remaining"
+                class="text-cyan-100 font-mono font-bold text-lg mb-2 drop-shadow-[0_0_8px_rgba(0,242,254,0.8)]">00:00</span>
+            <div
+                class="w-full h-4 bg-black/40 backdrop-blur-md rounded-full overflow-hidden border border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
+                <div id="progress-bar"
+                    class="h-full w-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-pink-500 shadow-[0_0_15px_rgba(255,8,68,0.8)] transition-all duration-100">
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="absolute right-12 top-1/2 transform -translate-y-1/2 glass px-12 py-10 rounded-3xl flex flex-col items-center shadow-2xl">
+            <span class="text-gray-400 text-sm font-bold uppercase tracking-[0.3em] mb-2">Score</span>
+            <div id="score-display" class="text-7xl font-black text-white drop-shadow-[0_0_15px_rgba(255,8,68,0.5)]">0
+            </div>
+
+            <div class="mt-6 flex flex-col items-center opacity-0 transition-opacity duration-300" id="combo-container">
+                <span class="text-cyan-400 text-xs font-bold uppercase tracking-widest">Combo</span>
+                <div class="text-4xl font-black text-gradient-cyan mt-1" id="combo-display">x1</div>
+            </div>
+        </div>
+
+        <canvas id="pitch-canvas"></canvas>
+    </div>
+
+    <!-- UI 4: Resumen -->
+    <div id="ui-summary"
+        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-lg z-30">
+        <div
+            class="glass p-12 rounded-3xl w-full max-w-xl flex flex-col items-center shadow-2xl border border-pink-500/30">
+            <h2 class="text-4xl font-black mb-2 text-center uppercase tracking-[0.2em] text-gradient-pink">Resumen de
+                Actuación</h2>
+            <span class="text-gray-400 text-sm font-bold uppercase tracking-[0.3em] mt-4">Puntuación Final</span>
+            <div class="text-7xl font-black text-white drop-shadow-[0_0_20px_rgba(0,242,254,0.8)] mb-8"
+                id="summary-score">0</div>
+
+            <div class="w-full grid grid-cols-3 gap-4 mb-10">
+                <div class="glass p-4 rounded-2xl flex flex-col items-center border border-cyan-500/20">
+                    <span class="text-[10px] uppercase font-bold text-cyan-400 mb-1 tracking-widest">Afinación</span>
+                    <span class="text-2xl font-bold font-mono text-white" id="summary-pitch">0%</span>
+                </div>
+                <div class="glass p-4 rounded-2xl flex flex-col items-center border border-green-500/20">
+                    <span class="text-[10px] uppercase font-bold text-green-400 mb-1 tracking-widest">Tiempo</span>
+                    <span class="text-2xl font-bold font-mono text-white" id="summary-time">0%</span>
+                </div>
+                <div class="glass p-4 rounded-2xl flex flex-col items-center border border-yellow-500/20">
+                    <span class="text-[10px] uppercase font-bold text-yellow-400 mb-1 tracking-widest">Volumen</span>
+                    <span class="text-2xl font-bold font-mono text-white" id="summary-vol">0%</span>
+                </div>
+            </div>
+
+            <button onclick="window.location.reload()"
+                class="glass-button px-10 py-4 font-bold rounded-2xl text-white tracking-wide uppercase hover:shadow-[0_0_20px_rgba(255,8,68,0.4)]">Probar
+                Otra Canción</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <script>
+
+        const uiSearch = document.getElementById('ui-search');
+        const uiStart = document.getElementById('ui-start');
+        const uiLoading = document.getElementById('ui-loading');
+        const uiGame = document.getElementById('ui-game');
+
+        const pitchCanvas = document.getElementById('pitch-canvas');
+        const ctx = pitchCanvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const comboContainer = document.getElementById('combo-container');
+        const comboDisplay = document.getElementById('combo-display');
+        const loadingTitle = document.getElementById('loading-title');
+        const loadingDesc = document.getElementById('loading-desc');
+
+        let audioCtx, micAnalyser, instAudio;
+        let isPlaying = false;
+        let score = 0, combo = 1, matchFrames = 0;
+
+        const TIME_WINDOW = 6;
+        let songPitches = [];
+        let songHopTime = 0;
+        let userHistory = [], particles = [], floatingTexts = [];
+        let graphWidth, graphHeight;
+
+        // --- VARIABLES DE ANÁLISIS EN TIEMPO REAL ---
+        let rawVocalData = null;
+        let vocalSampleRate = 44100;
+        let pitchHopSize = 2048;
+        let analyzedSamples = 0;
+
+        // --- VARIABLES DE SESIÓN Y MÉTRICAS ---
+        let playStartTime = 0, playEndTime = 0;
+        let statsTotalPitches = 0, statsMatchedPitches = 0;
+        let statsVolumeSum = 0, statsVolumeCount = 0;
+        let statsTimingScore = 0, statsTimingCount = 0;
+
+        // --- NUEVAS VARIABLES DE JUEGO ---
+        const LATENCY_OFFSET = 0.15; // Compensación de latencia del micro (150ms)
+        const FEEDBACK_WORDS = ["¡PERFECTO!", "¡GENIAL!", "¡BRUTAL!", "¡IMPRESIONANTE!", "¡WOW!", "¡INCREÍBLE!"];
+        let lastFeedbackTime = 0;
+
+        // --- Catálogo de canciones modernas y bailables ---
+        const defaultCatalog = [
+            { title: "Dua Lipa - Don't Start Now", ytId: "oygrmJFKYZY" },
+            { title: "The Weeknd - Blinding Lights", ytId: "4NRXx6U8ABQ" },
+            { title: "Bizarrap & Quevedo - Bzrp Music Sessions, Vol. 52", ytId: "A_g3lMcWVy0" },
+            { title: "Rosalía - DESPECHÁ", ytId: "5g2hT4GmAGU" },
+            { title: "Shakira - Hips Don't Lie", ytId: "DUT5rEU6pqM" },
+            { title: "Queen - Don't Stop Me Now", ytId: "HgzGwKwLmgM" },
+            { title: "Luis Fonsi - Despacito", ytId: "kJQP7kiw5Fk" },
+            { title: "Rihanna - Don't Stop The Music", ytId: "yd8jh9QYfEs" },
+            { title: "Bad Bunny - Tití Me Preguntó", ytId: "Cr8K88UcO0s" },
+            { title: "Britney Spears - Toxic", ytId: "LOZuxwVk7TU" },
+            { title: "Avicii - Wake Me Up", ytId: "IcrbM1l_BoI" },
+            { title: "Daddy Yankee - Gasolina", ytId: "CCF1_jI8Prk" },
+            { title: "Michael Jackson - Billie Jean", ytId: "Zi_XLOBDo_Y" },
+            { title: "ABBA - Dancing Queen", ytId: "xFrGuyw1V8s" },
+            { title: "Lady Gaga - Bad Romance", ytId: "qrO4YZeyl0I" },
+            { title: "Bruno Mars - Uptown Funk", ytId: "OPf0YbXqDm0" },
+            { title: "Daft Punk - Get Lucky", ytId: "5NV6Rdv1a3I" },
+            { title: "Whitney Houston - I Wanna Dance With Somebody", ytId: "eH3giaIzONA" },
+            { title: "Earth, Wind & Fire - September", ytId: "Gs069dndIYk" },
+            { title: "David Guetta ft. Sia - Titanium", ytId: "JRfuAukYTKg" }
+        ];
+
+        let peer;
+
+        function connectMobileMic() {
+            const pcId = 'singstar-pc-' + Math.floor(Math.random() * 100000);
+            
+            // Generar la URL basada en la ruta actual
+            let currentUrl = window.location.href.split('?')[0];
+            if (currentUrl.endsWith('index.html')) currentUrl = currentUrl.replace('index.html', '');
+            if (!currentUrl.endsWith('/')) currentUrl += '/';
+            
+            const mobileUrl = `${currentUrl}mic.html?target=${pcId}`;
+            
+            // Generar el QR
+            document.getElementById('qrcode').innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), {
+                text: mobileUrl,
+                width: 80,
+                height: 80,
+                colorDark : "#0a0a0f",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.L
+            });
+            
+            // Advertencia si están usando localhost (el móvil no podrá acceder a localhost)
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                document.getElementById('mic-status-text').innerText = "⚠️ Entra desde la IP local de tu PC para que el QR funcione.";
+                document.getElementById('mic-dot').classList.remove('bg-red-500');
+                document.getElementById('mic-dot').classList.add('bg-yellow-500');
+            }
+
+            peer = new Peer(pcId);
+            
+            peer.on('open', (id) => {
+                console.log('PC Peer ID:', id);
+            });
+            
+            peer.on('call', (call) => {
+                call.answer();
+                
+                call.on('stream', (remoteStream) => {
+                    window.mobileAudioStream = remoteStream;
+                    
+                    const statusText = document.getElementById('mic-status-text');
+                    const dot = document.getElementById('mic-dot');
+                    statusText.innerText = '¡Micrófono Conectado!';
+                    statusText.style.color = '#96c93d';
+                    dot.classList.remove('bg-red-500', 'bg-yellow-500', 'animate-pulse');
+                    dot.classList.add('bg-green-500');
+                    document.getElementById('mic-status').style.borderColor = '#96c93d';
+                    
+                    if (micAnalyser && audioCtx) {
+                        try {
+                            audioCtx.createMediaStreamSource(remoteStream).connect(micAnalyser);
+                        } catch(e) {}
+                    }
+                });
+            });
+            peer.on('error', (err) => console.error("Peer error:", err));
+        }
+
+        window.onload = () => {
+            connectMobileMic();
+            renderCatalog(defaultCatalog);
+        };
+
+        let selectedIndex = 0;
+        let catalogItems = [];
+        const CARD_WIDTH = 320;
+        const CARD_GAP = 32;
+
+        let ytPlayer;
+        let bgPlayer;
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('yt-player', {
+                height: '0',
+                width: '0',
+                videoId: '',
+                playerVars: { 'autoplay': 0, 'controls': 0 },
+            });
+            bgPlayer = new YT.Player('bg-video', {
+                height: '100%',
+                width: '100%',
+                videoId: '',
+                playerVars: { 'autoplay': 0, 'controls': 0, 'disablekb': 1, 'fs': 0, 'modestbranding': 1, 'rel': 0 },
+            });
+        }
+
+        function startGameMenu() {
+            uiStart.classList.add('hidden');
+            uiSearch.classList.remove('hidden');
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (catalogItems.length > 0) {
+                setTimeout(() => {
+                    updateCarousel();
+                    playPreview(catalogItems[selectedIndex].ytId);
+                }, 100);
+            }
+        }
+
+        function renderCatalog(items) {
+            catalogItems = items;
+            const track = document.getElementById('carousel-track');
+            track.innerHTML = '';
+            
+            items.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = `song-card ${idx === selectedIndex ? 'selected' : ''}`;
+                card.onclick = () => {
+                    if (selectedIndex === idx) selectCurrentSong();
+                    else setSelectedIndex(idx);
+                };
+                card.innerHTML = `<img src="https://img.youtube.com/vi/${item.ytId}/hqdefault.jpg" alt="thumb"><div class="info">${item.title}</div>`;
+                track.appendChild(card);
+            });
+            if (!uiSearch.classList.contains('hidden')) {
+                updateCarousel();
+            }
+        }
+
+        function setSelectedIndex(idx) {
+            if (idx < 0) idx = 0;
+            if (idx >= catalogItems.length) idx = catalogItems.length - 1;
+            selectedIndex = idx;
+            updateCarousel();
+            playPreview(catalogItems[idx].ytId);
+        }
+
+        function updateCarousel() {
+            const track = document.getElementById('carousel-track');
+            const cards = track.children;
+            for (let i = 0; i < cards.length; i++) {
+                if (i === selectedIndex) cards[i].classList.add('selected');
+                else cards[i].classList.remove('selected');
+            }
+            
+            const cardOuterWidth = CARD_WIDTH + CARD_GAP;
+            const centerOffset = (window.innerWidth / 2) - (CARD_WIDTH / 2);
+            const translateX = centerOffset - (selectedIndex * cardOuterWidth);
+            track.style.transform = `translateX(${translateX}px)`;
+        }
+
+        let previewTimeout;
+        let fadeInterval;
+        
+        function playPreview(ytId) {
+            if (!ytId || !ytPlayer || !ytPlayer.loadVideoById) return;
+            
+            clearTimeout(previewTimeout);
+            
+            previewTimeout = setTimeout(() => {
+                fadeInOutPreview(ytId);
+            }, 400); // Esperar a que el usuario termine de navegar
+        }
+
+        function fadeInOutPreview(videoId) {
+            clearInterval(fadeInterval);
+            
+            let state = ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -1;
+            let currentVol = (state === 1) ? ytPlayer.getVolume() : 0;
+            
+            if (state === 1 && currentVol > 0) {
+                // Fade out de la canción actual
+                fadeInterval = setInterval(() => {
+                    currentVol -= 5;
+                    if (currentVol <= 0) {
+                        clearInterval(fadeInterval);
+                        startNewVideoFadeIn(videoId);
+                    } else {
+                        ytPlayer.setVolume(currentVol);
+                    }
+                }, 40);
+            } else {
+                startNewVideoFadeIn(videoId);
+            }
+        }
+
+        function startNewVideoFadeIn(videoId) {
+            ytPlayer.loadVideoById({videoId: videoId, startSeconds: 30});
+            ytPlayer.playVideo();
+            ytPlayer.setVolume(0);
+            
+            let currentVol = 0;
+            const targetVol = 25;
+            
+            // Fade in de la nueva canción
+            fadeInterval = setInterval(() => {
+                currentVol += 2;
+                if (currentVol >= targetVol) {
+                    clearInterval(fadeInterval);
+                    ytPlayer.setVolume(targetVol);
+                } else {
+                    ytPlayer.setVolume(currentVol);
+                }
+            }, 60);
+        }
+
+        function selectCurrentSong() {
+            if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+            
+            // Animación épica antes de arrancar
+            const cards = document.getElementById('carousel-track').children;
+            const selectedCard = cards[selectedIndex];
+            selectedCard.style.transform = 'scale(1.5)';
+            selectedCard.style.boxShadow = '0 0 100px #00f2fe';
+            selectedCard.style.zIndex = '50';
+            
+            setTimeout(() => {
+                selectSong(catalogItems[selectedIndex].ytId);
+            }, 800);
+        }
+
+        function resizeCanvas() {
+            pitchCanvas.width = window.innerWidth;
+            pitchCanvas.height = window.innerHeight * 0.4;
+            graphWidth = pitchCanvas.width;
+            graphHeight = pitchCanvas.height;
+        }
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            if (!uiSearch.classList.contains('hidden')) updateCarousel();
+        });
+        resizeCanvas();
+
+        window.addEventListener('keydown', (e) => {
+            if (uiSearch.classList.contains('hidden')) return;
+            if (e.code === 'ArrowLeft') setSelectedIndex(selectedIndex - 1);
+            else if (e.code === 'ArrowRight') setSelectedIndex(selectedIndex + 1);
+            else if (e.code === 'Enter') selectCurrentSong();
+        });
+
+        async function selectSong(ytId) {
+            uiSearch.classList.add('hidden');
+            uiLoading.classList.remove('hidden');
+
+            if (!ytId) {
+                alert("Canción inválida.");
+                window.location.reload();
+                return;
+            }
+
+            try {
+                // AQUI ESTÁ LA REFERENCIA DIRECTA QUE QUERÍAS
+                const vocalsUrl = `separated_tracks/mdx_extra_q/${ytId}/vocals.wav`;
+                const instUrl = `separated_tracks/mdx_extra_q/${ytId}/no_vocals.wav`;
+
+                await prepareOfflineAudio(vocalsUrl, instUrl);
+            } catch (err) {
+                alert("Error crítico. Intenta recargar la página.");
+                window.location.reload();
+            }
+        }
+
+        async function prepareOfflineAudio(vocalsUrl, instUrl) {
+            loadingTitle.innerText = "Cargando Pistas Locales";
+            loadingDesc.innerText = "Cargando audio local pre-descargado...";
+
+            if (window.location.protocol === 'file:') {
+                alert("⚠️ ATENCIÓN: Estás abriendo el archivo directamente. Para cargar los audios descargados, necesitas abrir el juego desde un servidor local. Abre una consola y ejecuta 'python -m http.server 80' y entra a http://localhost");
+                window.location.reload();
+                return;
+            }
+
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                loadingDesc.innerText = "Cargando voces (vocals.wav)...";
+                const response = await fetch(vocalsUrl);
+                if (!response.ok) throw new Error("No se encontró vocals.wav. ¿Se descargó bien la canción?");
+                const arrayBuffer = await response.arrayBuffer();
+                
+                loadingDesc.innerText = "Decodificando audio (puede tardar)...";
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+                rawVocalData = audioBuffer.getChannelData(0);
+                vocalSampleRate = audioBuffer.sampleRate;
+                songHopTime = pitchHopSize / vocalSampleRate;
+                songPitches = [];
+                analyzedSamples = 0;
+
+                loadingDesc.innerText = "Cargando pista instrumental...";
+
+                // SOLUCIÓN AL BUG DE VSCODE LIVE SERVER:
+                // VSCode Live Server se congela con etiquetas <audio> grandes porque maneja mal las peticiones Range (206).
+                // Descargamos el archivo completo a memoria primero como Blob.
+                const instResponse = await fetch(instUrl);
+                if (!instResponse.ok) throw new Error("No se encontró la pista instrumental (no_vocals.wav).");
+                const instBlob = await instResponse.blob();
+                const instBlobUrl = URL.createObjectURL(instBlob);
+
+                instAudio = new Audio(instBlobUrl);
+                instAudio.crossOrigin = "anonymous";
+                
+                instAudio.onerror = () => {
+                    alert("El archivo instrumental parece estar corrupto.");
+                    window.location.reload();
+                };
+
+                micAnalyser = audioCtx.createAnalyser(); micAnalyser.fftSize = 2048;
+                
+                if (window.mobileAudioStream) {
+                    audioCtx.createMediaStreamSource(window.mobileAudioStream).connect(micAnalyser);
+                } else {
+                    loadingDesc.innerText = "Por favor, PERMITE EL MICRÓFONO en el navegador...";
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, 
+                        video: false 
+                    });
+                    audioCtx.createMediaStreamSource(stream).connect(micAnalyser);
+                }
+
+                loadingDesc.innerText = "¡Listo para cantar! Preparando juego...";
+
+                instAudio.oncanplaythrough = () => {
+                    instAudio.oncanplaythrough = null;
+                    uiLoading.classList.add('hidden');
+                    const dur = Math.floor(instAudio.duration) || 120;
+                    document.getElementById('setup-end').value = dur;
+                    document.getElementById('setup-end').max = dur;
+                    document.getElementById('ui-setup').classList.remove('hidden');
+                };
+                instAudio.load();
+
+            } catch (e) { 
+                alert(e.message || "Fallo al analizar el audio o falta descargar."); 
+                window.location.reload(); 
+            }
+        }
+
+        function startConfiguredGame() {
+            playStartTime = parseFloat(document.getElementById('setup-start').value) || 0;
+            playEndTime = parseFloat(document.getElementById('setup-end').value) || instAudio.duration;
+            document.getElementById('ui-setup').classList.add('hidden');
+
+            // Resetear estadísticas
+            statsTotalPitches = 0; statsMatchedPitches = 0;
+            statsVolumeSum = 0; statsVolumeCount = 0;
+            statsTimingScore = 0; statsTimingCount = 0;
+            score = 0; combo = 1; matchFrames = 0;
+            scoreDisplay.innerText = score;
+            comboContainer.style.opacity = 0;
+
+            // Truco JIT: Saltar análisis de la voz en silencios previos al 'startTime'
+            analyzedSamples = Math.floor(playStartTime * vocalSampleRate);
+            const startIndex = Math.floor(playStartTime / songHopTime);
+            songPitches = [];
+            for (let i = 0; i < startIndex; i++) songPitches.push(-1);
+
+            startGame();
+        }
+
+        // NUEVA FUNCIÓN: Analiza el audio sobre la marcha mientras juegas
+        function analyzeFuture() {
+            if (!rawVocalData || !isPlaying) return;
+            const now = instAudio.currentTime;
+
+            // Calculamos hasta 4 segundos en el futuro (para llenar la pantalla por la derecha)
+            const targetTime = now + 4.0;
+            const targetSample = Math.floor(targetTime * vocalSampleRate);
+            const maxSample = Math.min(targetSample, rawVocalData.length - pitchHopSize);
+
+            let startIndex = songPitches.length;
+
+            // Bucle súper rápido que solo calcula los fotogramas necesarios
+            while (analyzedSamples < maxSample) {
+                const chunk = rawVocalData.subarray(analyzedSamples, analyzedSamples + pitchHopSize);
+                let hz = autoCorrelate(chunk, vocalSampleRate);
+                songPitches.push(hz);
+                analyzedSamples += pitchHopSize;
+            }
+
+            // Suavizado al vuelo solo para las nuevas notas calculadas
+            for (let i = Math.max(2, startIndex); i < songPitches.length - 2; i++) {
+                if (songPitches[i] > 0) {
+                    let n = [songPitches[i - 2], songPitches[i - 1], songPitches[i], songPitches[i + 1], songPitches[i + 2]];
+                    n.sort((a, b) => a - b);
+                    songPitches[i] = n[2];
+                }
+            }
+        }
+
+        function startGame() {
+            uiGame.classList.remove('hidden');
+            
+            const ytId = catalogItems[selectedIndex].ytId;
+            bgPlayer.loadVideoById({videoId: ytId, startSeconds: playStartTime});
+            bgPlayer.mute();
+            bgPlayer.playVideo();
+            document.getElementById('bg-video').style.filter = "brightness(0.2) blur(4px) saturate(0.6)";
+
+            audioCtx.resume();
+            instAudio.currentTime = playStartTime;
+            instAudio.play();
+            isPlaying = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            isPlaying = false;
+            if (bgPlayer && bgPlayer.pauseVideo) bgPlayer.pauseVideo();
+            instAudio.pause(); audioCtx.suspend();
+
+            uiGame.classList.add('hidden');
+            document.getElementById('ui-summary').classList.remove('hidden');
+            document.getElementById('summary-score').innerText = score;
+
+            // Calcular Métricas
+            let pitchPct = statsTotalPitches > 0 ? Math.round((statsMatchedPitches / statsTotalPitches) * 100) : 0;
+            document.getElementById('summary-pitch').innerText = pitchPct + '%';
+
+            let timePct = statsTimingCount > 0 ? Math.round(Math.max(0, (statsTimingScore / statsTimingCount)) * 100) : 0;
+            if (timePct > 100) timePct = 100;
+            document.getElementById('summary-time').innerText = timePct + '%';
+
+            let avgVol = statsVolumeCount > 0 ? (statsVolumeSum / statsVolumeCount) : 0;
+            let volPct = Math.min(100, Math.round(avgVol * 1000)); // Escala de volumen para interfaz
+            document.getElementById('summary-vol').innerText = volPct + '%';
+        }
+
+        function autoCorrelate(buf, sampleRate) {
+            let SIZE = buf.length; let rms = 0;
+            for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+            rms = Math.sqrt(rms / SIZE); if (rms < 0.015) return -1;
+            let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+            for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+            for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+            buf = buf.slice(r1, r2); SIZE = buf.length;
+            let c = new Array(SIZE).fill(0);
+            for (let i = 0; i < SIZE; i++) for (let j = 0; j < SIZE - i; j++) c[i] = c[i] + buf[j] * buf[j + i];
+            let d = 0; while (c[d] > c[d + 1]) d++;
+            let maxval = -1, maxpos = -1;
+            for (let i = d; i < SIZE; i++) { if (c[i] > maxval) { maxval = c[i]; maxpos = i; } }
+            return sampleRate / maxpos;
+        }
+
+        function hzToY(hz) {
+            if (hz <= 0) return null;
+            const minLog = Math.log2(80), maxLog = Math.log2(800);
+            let logHz = Math.log2(hz);
+            if (logHz < minLog) logHz = minLog; if (logHz > maxLog) logHz = maxLog;
+            return graphHeight - (((logHz - minLog) / (maxLog - minLog)) * graphHeight);
+        }
+
+        function gameLoop() {
+            if (!isPlaying) return;
+            const now = instAudio.currentTime;
+
+            if (now >= playEndTime) {
+                endGame();
+                return;
+            }
+
+            // --- ACTUALIZAR BARRA DE PROGRESO ---
+            const progressPct = Math.min(100, Math.max(0, ((now - playStartTime) / (playEndTime - playStartTime)) * 100));
+            document.getElementById('progress-bar').style.width = progressPct + '%';
+
+            const timeLeft = Math.max(0, playEndTime - now);
+            const mins = Math.floor(timeLeft / 60);
+            const secs = Math.floor(timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('time-remaining').innerText = `- ${mins}:${secs}`;
+
+            // 1. Escanear el futuro en tiempo real (Lookahead Buffer)
+            analyzeFuture();
+
+            const micBuf = new Float32Array(micAnalyser.fftSize);
+            micAnalyser.getFloatTimeDomainData(micBuf);
+
+            // Recolectar estadísticas de Volumen
+            let rms = 0;
+            for (let i = 0; i < micBuf.length; i++) rms += micBuf[i] * micBuf[i];
+            rms = Math.sqrt(rms / micBuf.length);
+            if (rms > 0.01) { statsVolumeSum += rms; statsVolumeCount++; }
+
+            const rawUserHz = autoCorrelate(micBuf, audioCtx.sampleRate);
+
+            // --- 🎤 COMPENSACIÓN DE LATENCIA ---
+            // Buscamos qué nota debía cantar el usuario hace 150ms para perdonarle el retraso humano/hardware
+            const targetTimeForMic = Math.max(0, now - LATENCY_OFFSET);
+            const targetHz = songPitches[Math.floor(targetTimeForMic / songHopTime)];
+
+            let userHz = rawUserHz;
+
+            // --- 🎤 MAGIA 1: TOLERANCIA DE OCTAVAS ---
+            // Solo plegado de octavas sin trucos falsos
+            if (userHz > 0 && targetHz > 0) {
+                while (userHz > targetHz * 1.35) userHz /= 2;
+                while (userHz < targetHz * 0.65) userHz *= 2;
+            }
+
+            let userY = hzToY(userHz);
+            const targetY = hzToY(targetHz);
+            let isMatching = false;
+            let currentRawDistance = 0;
+
+            // --- ✨ DETECCIÓN REAL Y ESTRICTA ---
+            if (userY !== null) {
+                if (typeof window.lastUserY === 'undefined') window.lastUserY = userY;
+
+                // Menos suavizado para que sea más reactivo a la voz real
+                userY = window.lastUserY + (userY - window.lastUserY) * 0.5;
+                window.lastUserY = userY;
+
+                // Tolerancia muy estricta para requerir afinar de verdad
+                let tolerance = 18;
+
+                if (targetY !== null) {
+                    currentRawDistance = Math.abs(targetY - userY);
+
+                    if (currentRawDistance < tolerance) {
+                        isMatching = true;
+                    }
+                }
+
+                userHistory.push({ time: now, y: userY });
+            } else {
+                window.lastUserY = null;
+            }
+
+            userHistory = userHistory.filter(p => now - p.time < TIME_WINDOW / 2);
+
+            if (targetY !== null) {
+                statsTotalPitches++;
+                statsTimingCount++;
+                if (userY !== null) statsTimingScore++;
+            } else if (userY !== null) {
+                statsTimingScore -= 0.5;
+            }
+
+            if (isMatching) {
+                matchFrames++;
+                statsMatchedPitches++;
+                if (matchFrames % 10 === 0) {
+                    // --- 🌟 PUNTUACIÓN DINÁMICA POR PROXIMIDAD ---
+                    // En lugar de dar 10 puntos fijos, damos entre 5 y 15 según cuán cerca estabas del centro
+                    let closeness = Math.max(0, 1 - (currentRawDistance / 45)); // 1.0 es perfecto, 0.0 está en el límite
+                    let basePoints = Math.floor(5 + (closeness * 10));
+                    let pointsAdded = basePoints * combo;
+
+                    score += pointsAdded;
+                    scoreDisplay.innerText = score;
+                    floatingTexts.push({ x: graphWidth / 2 + 30, y: userY - 20, text: `+${pointsAdded}`, life: 1.0, color: combo >= 4 ? '#0ff' : '#f0f', isWord: false });
+
+                    if (matchFrames > 40 && combo < 4) { combo = 2; comboContainer.style.opacity = 1; }
+                    if (matchFrames > 120 && combo < 4) combo = 3;
+                    if (matchFrames > 200) combo = 4;
+                    comboDisplay.innerText = `x${combo}`;
+                }
+
+                // --- 🌟 PALABRAS DE ÁNIMO ALEATORIAS ---
+                if (matchFrames > 30 && matchFrames % 40 === 0 && (now - lastFeedbackTime > 1.5)) {
+                    const word = FEEDBACK_WORDS[Math.floor(Math.random() * FEEDBACK_WORDS.length)];
+                    floatingTexts.push({ x: graphWidth / 2, y: userY - 50, text: word, life: 1.5, color: '#fff', isWord: true });
+                    lastFeedbackTime = now;
+                }
+
+                if (Math.random() > 0.4) particles.push({ x: graphWidth / 2, y: userY, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 1) * 6, life: 1.0, size: Math.random() * 5 + 2 });
+            } else {
+                matchFrames = 0;
+                combo = 1;
+                comboContainer.style.opacity = 0;
+            }
+
+            drawCanvas(now, userY, isMatching, targetY);
+            requestAnimationFrame(gameLoop);
+        }
+
+        function drawCanvas(now, userY, isMatching, targetY) {
+            ctx.clearRect(0, 0, graphWidth, graphHeight);
+            const pps = graphWidth / TIME_WINDOW, playX = graphWidth / 2;
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; ctx.lineWidth = 1;
+            for (let i = 0; i < 5; i++) { let h = (graphHeight / 4) * i; ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(graphWidth, h); ctx.stroke(); }
+
+            const sIdx = Math.max(0, Math.floor((now - TIME_WINDOW / 2) / songHopTime));
+            const eIdx = Math.min(songPitches.length, Math.floor((now + TIME_WINDOW / 2) / songHopTime));
+
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 14;
+            let isD = false; ctx.beginPath();
+
+            for (let i = sIdx; i < eIdx; i++) {
+                const x = playX + ((i * songHopTime - now) * pps), y = hzToY(songPitches[i]);
+                if (y !== null) {
+                    if (!isD) { ctx.moveTo(x, y); isD = true; } else ctx.lineTo(x, y);
+                } else if (isD) {
+                    ctx.strokeStyle = 'rgba(0, 242, 254, 0.6)'; ctx.shadowBlur = 15; ctx.shadowColor = '#00f2fe'; ctx.stroke();
+                    ctx.beginPath(); isD = false;
+                }
+            }
+            if (isD) { ctx.strokeStyle = 'rgba(0, 242, 254, 0.6)'; ctx.stroke(); }
+
+            ctx.beginPath(); ctx.strokeStyle = '#ff0844'; ctx.lineWidth = 6; ctx.shadowBlur = 10; ctx.shadowColor = '#ff0844';
+            let uD = false;
+            for (let p of userHistory) {
+                const x = playX + ((p.time - now) * pps);
+                if (!uD) { ctx.moveTo(x, p.y); uD = true; } else ctx.lineTo(x, p.y);
+            }
+            ctx.stroke();
+
+            ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]);
+            ctx.moveTo(playX, 0); ctx.lineTo(playX, graphHeight); ctx.stroke(); ctx.setLineDash([]);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                if (p.life <= 0) { particles.splice(i, 1); continue; }
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+            }
+
+            if (userY !== null) {
+                ctx.save(); ctx.translate(playX, userY);
+                if (isMatching) {
+                    ctx.translate(0, targetY - userY); ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 30; ctx.shadowColor = '#fff'; ctx.scale(1.2, 1.2);
+                } else { ctx.fillStyle = '#ff0844'; ctx.shadowBlur = 15; ctx.shadowColor = '#ff0844'; }
+                ctx.beginPath(); ctx.moveTo(-15, -12); ctx.lineTo(10, 0); ctx.lineTo(-15, 12); ctx.closePath(); ctx.fill(); ctx.restore();
+            }
+
+            ctx.font = "bold 20px Outfit";
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                let ft = floatingTexts[i];
+                ft.y -= ft.isWord ? 1.5 : 1;
+                ft.life -= 0.02;
+                if (ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
+
+                ctx.fillStyle = ft.color;
+                ctx.globalAlpha = ft.life;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ft.color;
+
+                if (ft.isWord) {
+                    ctx.font = "black 32px Outfit";
+                    ctx.textAlign = "center";
+                    // Efecto de neón extra para las palabras
+                    ctx.strokeText(ft.text, ft.x, ft.y);
+                } else {
+                    ctx.font = "bold 20px Outfit";
+                    ctx.textAlign = "left";
+                }
+
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+    </script>
+</body>
+
+</html>
