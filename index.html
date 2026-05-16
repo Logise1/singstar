@@ -406,13 +406,15 @@
         let peer;
 
         function connectMobileMic() {
-            const pcId = 'singstar-pc-' + Math.floor(Math.random() * 100000);
+            // ID más único usando el tiempo actual
+            const pcId = 'ss-pc-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000);
             let currentUrl = window.location.href.split('?')[0];
             if (currentUrl.endsWith('index.html')) currentUrl = currentUrl.replace('index.html', '');
             if (!currentUrl.endsWith('/')) currentUrl += '/';
             
             const mobileUrl = `${currentUrl}mic.html?target=${pcId}`;
-            
+            console.log("Mobile URL:", mobileUrl);
+
             document.getElementById('qrcode').innerHTML = "";
             new QRCode(document.getElementById("qrcode"), {
                 text: mobileUrl,
@@ -424,7 +426,14 @@
             });
             
             peer = new Peer(pcId);
+
+            peer.on('open', (id) => {
+                console.log('PC listo con ID:', id);
+                document.getElementById('mic-status-text').innerText = "Esperando conexión...";
+            });
+
             peer.on('call', (call) => {
+                console.log('Recibiendo llamada del móvil...');
                 call.answer();
                 call.on('stream', (remoteStream) => {
                     window.mobileAudioStream = remoteStream;
@@ -437,9 +446,19 @@
                     if (micAnalyser && audioCtx) {
                         try {
                             audioCtx.createMediaStreamSource(remoteStream).connect(micAnalyser);
-                        } catch(e) {}
+                        } catch(e) { console.error("Error conectando stream:", e); }
                     }
                 });
+            });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Error (PC):", err.type);
+                if (err.type === 'unavailable-id') {
+                    // Si el ID está ocupado, reintentamos con otro
+                    connectMobileMic();
+                } else {
+                    document.getElementById('mic-status-text').innerText = "Error conexión: " + err.type;
+                }
             });
         }
 

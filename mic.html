@@ -69,7 +69,14 @@
                 });
 
                 peer.on('error', (err) => {
-                    statusEl.innerText = "Error: " + err.type;
+                    console.error("PeerJS Error (Mobile):", err.type);
+                    if (err.type === 'peer-unavailable') {
+                        statusEl.innerText = "Error: El PC no está disponible. Escanea de nuevo el código QR.";
+                    } else if (err.type === 'network') {
+                        statusEl.innerText = "Error de red. Verifica tu conexión.";
+                    } else {
+                        statusEl.innerText = "Error: " + err.type;
+                    }
                     statusEl.style.color = "#ff0844";
                     connectBtn.classList.remove('pulse', 'connected');
                     connectBtn.innerText = "Reconectar";
