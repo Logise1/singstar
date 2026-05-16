@@ -444,8 +444,12 @@
         }
 
         window.onload = () => {
-            connectMobileMic();
             renderCatalog(defaultCatalog);
+            try {
+                connectMobileMic();
+            } catch (e) {
+                console.error("Error al iniciar PeerJS/Mic:", e);
+            }
         };
 
         let selectedIndex = 0;
@@ -503,11 +507,17 @@
         }
 
         function setSelectedIndex(idx) {
+            if (!catalogItems || catalogItems.length === 0) return;
+            
             if (idx < 0) idx = 0;
             if (idx >= catalogItems.length) idx = catalogItems.length - 1;
+            
             selectedIndex = idx;
             updateCarousel();
-            playPreview(catalogItems[idx].ytId);
+            
+            if (catalogItems[idx]) {
+                playPreview(catalogItems[idx].ytId);
+            }
         }
 
         function updateCarousel() {
@@ -580,17 +590,23 @@
         }
 
         function selectCurrentSong() {
+            if (!catalogItems || catalogItems.length === 0) return;
             if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
             
             // Animación épica antes de arrancar
             const cards = document.getElementById('carousel-track').children;
             const selectedCard = cards[selectedIndex];
-            selectedCard.style.transform = 'scale(1.5)';
-            selectedCard.style.boxShadow = '0 0 100px #00f2fe';
-            selectedCard.style.zIndex = '50';
+            
+            if (selectedCard) {
+                selectedCard.style.transform = 'scale(1.5)';
+                selectedCard.style.boxShadow = '0 0 100px #00f2fe';
+                selectedCard.style.zIndex = '50';
+            }
             
             setTimeout(() => {
-                selectSong(catalogItems[selectedIndex].ytId);
+                if (catalogItems[selectedIndex]) {
+                    selectSong(catalogItems[selectedIndex].ytId);
+                }
             }, 800);
         }
 
