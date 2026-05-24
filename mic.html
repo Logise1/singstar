@@ -138,6 +138,11 @@
         // Auto-calibración de volumen
         let maxVolumeSeen = 0.04;
 
+        // Variables de control de reconexión y Wake Lock
+        let isUserLeaving = false;
+        let reconnectTimeout = null;
+        let wakeLock = null;
+
         // Leer parámetro target desde la URL
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('target');
@@ -152,6 +157,172 @@
             registerStatus.classList.remove('hidden');
         }
 
+        // --- SCREEN WAKE LOCK ---
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock activado en pantalla.');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Wake Lock liberado.');
+                    });
+                } else {
+                    console.warn('Wake Lock API no soportada en este navegador.');
+                }
+            } catch (err) {
+                console.error(`Error al solicitar Wake Lock: ${err.message}`);
+            }
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock) {
+                try {
+                    await wakeLock.release();
+                    wakeLock = null;
+                } catch (err) {
+                    console.error(`Error al liberar Wake Lock: ${err.message}`);
+                }
+            }
+        }
+
+        // Re-solicitar Wake Lock si la pestaña vuelve a ser visible
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && !screenPlay.classList.contains('hidden') && !isUserLeaving) {
+                await requestWakeLock();
+            }
+        });
+
+        // --- SISTEMA DE SESIÓN Y CONEXIÓN ---
+        function connectSession() {
+            isUserLeaving = false;
+            joinBtn.disabled = true;
+            joinBtn.innerText = "Conectando P2P...";
+            
+            if (peer) {
+                try { peer.destroy(); } catch(e){}
+            }
+            
+            peer = new Peer();
+            setupPeerEvents();
+        }
+
+        function setupPeerEvents() {
+            peer.on('open', (id) => {
+                console.log('Mi Peer ID es:', id);
+                tryConnectToHost();
+            });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Error (Mic):", err);
+                if (isUserLeaving) return;
+                
+                if (screenPlay.classList.contains('hidden')) {
+                    joinBtn.disabled = false;
+                    joinBtn.innerText = "Entrar a Cantar";
+                    if (err.type === 'peer-unavailable') {
+                        showError("No se pudo encontrar la partida. Verifica que el juego esté abierto en el PC.");
+                    } else {
+                        showError("Error de conexión PeerJS: " + err.type);
+                    }
+                } else {
+                    // Reconexión silenciosa si ya estábamos en pantalla de juego
+                    scheduleReconnect();
+                }
+            });
+            
+            peer.on('disconnected', () => {
+                console.log("Peer desconectado del servidor de señalización.");
+                if (!isUserLeaving) {
+                    peer.reconnect();
+                }
+            });
+        }
+
+        function tryConnectToHost() {
+            if (isUserLeaving) return;
+            console.log("Conectando con el host:", targetId);
+            
+            if (conn) {
+                try { conn.close(); } catch(e){}
+            }
+            
+            conn = peer.connect(targetId);
+            setupConnEvents(conn);
+        }
+
+        function setupConnEvents(connection) {
+            connection.on('open', () => {
+                console.log('Conexión de datos abierta con el PC.');
+                if (reconnectTimeout) {
+                    clearTimeout(reconnectTimeout);
+                    reconnectTimeout = null;
+                }
+                
+                // Enviar datos de registro
+                connection.send({
+                    type: 'join',
+                    name: playerName
+                });
+
+                // Cambiar a la pantalla de juego
+                screenRegister.classList.add('hidden');
+                screenPlay.classList.remove('hidden');
+                playerTitle.innerText = playerName;
+                playStatus.innerText = "Conectado P2P y transmitiendo...";
+                playStatus.className = "text-sm font-semibold text-green-400";
+
+                // Solicitar Wake Lock
+                requestWakeLock();
+
+                // Comenzar a enviar volumen por WebRTC
+                startSendingVolume();
+            });
+
+            connection.on('data', (data) => {
+                if (data.type === 'score_update') {
+                    liveScore.innerText = Math.round(data.score).toLocaleString();
+                }
+            });
+
+            connection.on('close', () => {
+                console.log("Conexión de datos cerrada.");
+                if (isUserLeaving) {
+                    cleanup();
+                    screenPlay.classList.add('hidden');
+                    screenRegister.classList.remove('hidden');
+                    joinBtn.disabled = false;
+                    joinBtn.innerText = "Entrar a Cantar";
+                } else {
+                    // Reintentar reconexión automática sin echar al usuario de la pantalla
+                    playStatus.innerText = "Conexión perdida. Reconectando...";
+                    playStatus.className = "text-sm font-semibold text-yellow-400 animate-pulse";
+                    scheduleReconnect();
+                }
+            });
+
+            connection.on('error', (err) => {
+                console.error("Conn error:", err);
+                if (!isUserLeaving) {
+                    scheduleReconnect();
+                }
+            });
+        }
+
+        function scheduleReconnect() {
+            if (isUserLeaving) return;
+            if (reconnectTimeout) return;
+            
+            console.log("Programando reconexión en 3 segundos...");
+            reconnectTimeout = setTimeout(() => {
+                reconnectTimeout = null;
+                if (peer && !peer.destroyed) {
+                    tryConnectToHost();
+                } else {
+                    connectSession();
+                }
+            }, 3000);
+        }
+
         joinBtn.addEventListener('click', async () => {
             playerName = usernameInput.value.trim();
             if (!playerName) {
@@ -160,103 +331,57 @@
             }
 
             // Pedir permisos de micrófono
-            try {
-                microphoneStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false,
-                        latency: 0
-                    },
-                    video: false
-                });
-            } catch (err) {
-                showError("Error de micrófono: " + err.message + ". Asegúrate de dar permisos en HTTPS.");
-                return;
+            if (!microphoneStream) {
+                try {
+                    microphoneStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: false,
+                            noiseSuppression: false,
+                            autoGainControl: false,
+                            latency: 0
+                        },
+                        video: false
+                    });
+                } catch (err) {
+                    showError("Error de micrófono: " + err.message + ". Asegúrate de dar permisos en HTTPS.");
+                    return;
+                }
             }
 
             // Configurar AudioContext local y forzar inicio
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
+            if (!audioContext) {
+                try {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+                    const source = audioContext.createMediaStreamSource(microphoneStream);
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 512;
+                    source.connect(analyser);
+                } catch (err) {
+                    showError("Error al iniciar el analizador de audio: " + err.message);
+                    return;
                 }
-                const source = audioContext.createMediaStreamSource(microphoneStream);
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 512;
-                source.connect(analyser);
-            } catch (err) {
-                showError("Error al iniciar el analizador de audio: " + err.message);
-                return;
+            } else if (audioContext.state === 'suspended') {
+                try {
+                    await audioContext.resume();
+                } catch(e){}
             }
 
             registerStatus.classList.add('hidden');
-            joinBtn.disabled = true;
-            joinBtn.innerText = "Conectando P2P...";
-
-            // Iniciar PeerJS para conectar con el PC
-            peer = new Peer();
-
-            peer.on('open', (id) => {
-                console.log('Mi Peer ID es:', id);
-                
-                // Conectar al PC
-                conn = peer.connect(targetId);
-
-                conn.on('open', () => {
-                    console.log('Conexión de datos abierta con el PC.');
-                    
-                    // Enviar datos de registro
-                    conn.send({
-                        type: 'join',
-                        name: playerName
-                    });
-
-                    // Cambiar a la pantalla de juego
-                    screenRegister.classList.add('hidden');
-                    screenPlay.classList.remove('hidden');
-                    playerTitle.innerText = playerName;
-
-                    // Comenzar a enviar volumen por WebRTC
-                    startSendingVolume();
-                });
-
-                conn.on('data', (data) => {
-                    if (data.type === 'score_update') {
-                        liveScore.innerText = Math.round(data.score).toLocaleString();
-                    }
-                });
-
-                conn.on('close', () => {
-                    cleanup();
-                    screenPlay.classList.add('hidden');
-                    screenRegister.classList.remove('hidden');
-                    joinBtn.disabled = false;
-                    joinBtn.innerText = "Entrar a Cantar";
-                    showError("Conexión perdida con la partida.");
-                });
-
-                conn.on('error', (err) => {
-                    console.error("Con error:", err);
-                    showError("Error en canal de datos P2P.");
-                });
-            });
-
-            peer.on('error', (err) => {
-                console.error("PeerJS Error (Mic):", err);
-                joinBtn.disabled = false;
-                joinBtn.innerText = "Entrar a Cantar";
-                if (err.type === 'peer-unavailable') {
-                    showError("No se pudo encontrar la partida. Verifica que el juego esté abierto en el PC.");
-                } else {
-                    showError("Error de conexión PeerJS: " + err.type);
-                }
-            });
+            connectSession();
         });
 
         leaveBtn.addEventListener('click', () => {
+            isUserLeaving = true;
             if (conn) conn.close();
             if (peer) peer.destroy();
+            cleanup();
+            screenPlay.classList.add('hidden');
+            screenRegister.classList.remove('hidden');
+            joinBtn.disabled = false;
+            joinBtn.innerText = "Entrar a Cantar";
         });
 
         function startSendingVolume() {
@@ -308,11 +433,18 @@
 
         function cleanup() {
             clearInterval(volumeInterval);
+            releaseWakeLock();
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
             if (microphoneStream) {
                 microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
             }
             if (audioContext) {
-                audioContext.close();
+                try { audioContext.close(); } catch(e){}
+                audioContext = null;
             }
             localVolume = 0;
             maxVolumeSeen = 0.04;

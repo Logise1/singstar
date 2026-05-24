@@ -14,6 +14,7 @@ import hashlib
 import re
 import socket
 import asyncio
+import sys
 
 app = FastAPI(title="Neon SingStar API con Demucs (Verbose)")
 
@@ -126,10 +127,14 @@ async def process_karaoke(url: str = Query(...)):
             print(f"👇 --- SALIDA EN TIEMPO REAL DE DEMUCS --- 👇\n")
 
             try:
-                process = await asyncio.create_subprocess_exec(
-                    "demucs", "-n", "mdx_extra_q", "-d", "cuda", "--two-stems", "vocals", "-o", TRACKS_DIR, raw_mp3_path
-                )
-                await process.wait()
+                # Ejecutar subprocess.run en un hilo separado para no bloquear el bucle de eventos.
+                # Se utiliza sys.executable -m demucs para correr a través del intérprete de Python firmado,
+                # evitando las directivas WDAC/AppLocker que bloquean el binario demucs.exe en Windows.
+                def run_demucs():
+                    return subprocess.run(
+                        [sys.executable, "-m", "demucs", "-n", "mdx_extra_q", "-d", "cuda", "--two-stems", "vocals", "-o", TRACKS_DIR, raw_mp3_path]
+                    )
+                process = await asyncio.to_thread(run_demucs)
             except FileNotFoundError:
                 print("\n❌ [ERROR CRÍTICO] Comando 'demucs' no encontrado en el PATH.")
                 print("⚠️ Retornando audio original como fallback.")

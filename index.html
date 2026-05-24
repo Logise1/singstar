@@ -279,6 +279,96 @@
     </div>
 
     <script>
+        // --- SISTEMA DE EFECTOS DE SONIDO (SFX) SINTETIZADOS CON WEB AUDIO ---
+        const SFX = {
+            ctx: null,
+            init(audioContext) {
+                this.ctx = audioContext;
+            },
+            playClick() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+                    
+                    gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+                    
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                } catch(e){}
+            },
+            playJoin() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const playTone = (freq, time, duration) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, time);
+                        gain.gain.setValueAtTime(0, time);
+                        gain.gain.linearRampToValueAtTime(0.12, time + 0.05);
+                        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+                        osc.start(time);
+                        osc.stop(time + duration);
+                    };
+                    playTone(523.25, now, 0.22); // C5
+                    playTone(659.25, now + 0.08, 0.32); // E5
+                } catch(e){}
+            },
+            playCombo() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(880, this.ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                } catch(e){}
+            },
+            playFanfare() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const playTrumpet = (freq, time, duration) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        const filter = this.ctx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.value = 1000;
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.frequency.setValueAtTime(freq, time);
+                        gain.gain.setValueAtTime(0, time);
+                        gain.gain.linearRampToValueAtTime(0.07, time + 0.04);
+                        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+                        osc.start(time);
+                        osc.stop(time + duration);
+                    };
+                    playTrumpet(523.25, now, 0.2); // C5
+                    playTrumpet(523.25, now + 0.22, 0.2); // C5
+                    playTrumpet(523.25, now + 0.44, 0.2); // C5
+                    playTrumpet(659.25, now + 0.66, 0.4); // E5
+                } catch(e){}
+            }
+        };
+
         const uiSearch = document.getElementById('ui-search');
         const uiStart = document.getElementById('ui-start');
         const uiLoading = document.getElementById('ui-loading');
@@ -304,6 +394,7 @@
         let particles = [], floatingTexts = [];
         let graphWidth, graphHeight;
         let frameCount = 0;
+        let lastFrameTime = 0;
 
         // --- SISTEMA DE MULTIJUGADOR PEERJS ---
         let peer = null;
@@ -391,11 +482,12 @@
                 score: 0,
                 volume: 0,
                 combo: 1,
-                matchFrames: 0,
+                matchTime: 0,
                 history: [],
                 conn: conn,
                 volumeActive: false
             };
+            SFX.playJoin(); // Sonar al unirse
             updatePlayersUI();
         }
 
@@ -489,6 +581,7 @@
 
         // BÚSQUEDA Y SELECCIÓN DE CANCIONES
         async function performSearch() {
+            SFX.playClick();
             const query = document.getElementById('search-input').value.trim();
             if (!query) return;
 
@@ -526,6 +619,7 @@
         }
 
         function selectSongFromSearch(song) {
+            SFX.playClick();
             selectedSong = {
                 title: song.title,
                 ytId: song.id,
@@ -594,27 +688,75 @@
         }
 
         async function prepareOfflineAudio(vocalsUrl, instUrl) {
-            loadingTitle.innerText = "Cargando Pistas de Audio";
-            loadingDesc.innerText = "Descargando voz e instrumentos...";
+            loadingTitle.innerText = "Cargando Melodía";
+            loadingDesc.innerText = "Descargando pista de voz...";
 
             try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    SFX.init(audioCtx);
+                }
                 
-                loadingDesc.innerText = "Cargando y analizando voz...";
                 const response = await fetch(vocalsUrl);
                 if (!response.ok) throw new Error("No se pudo cargar la pista de voces.");
                 const arrayBuffer = await response.arrayBuffer();
                 
-                loadingDesc.innerText = "Decodificando ondas...";
+                loadingDesc.innerText = "Decodificando voz...";
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
                 rawVocalData = audioBuffer.getChannelData(0);
                 vocalSampleRate = audioBuffer.sampleRate;
                 songHopTime = pitchHopSize / vocalSampleRate;
                 songPitches = [];
-                analyzedSamples = 0;
+                
+                // INICIAR PRE-ANÁLISIS DE TONOS FRACCIONADO
+                loadingTitle.innerText = "Analizando Melodía";
+                loadingDesc.innerText = "Analizando tonos de la canción (0%)...";
+                
+                const len = rawVocalData.length;
+                let i = 0;
+                
+                function analyzeChunk() {
+                    const chunkSize = 200; // Procesar 200 bloques (~9 segundos) a la vez
+                    const end = Math.min(i + chunkSize * pitchHopSize, len - pitchHopSize);
+                    
+                    while (i < end) {
+                        const chunk = rawVocalData.subarray(i, i + pitchHopSize);
+                        let hz = autoCorrelate(chunk, vocalSampleRate);
+                        songPitches.push(hz);
+                        i += pitchHopSize;
+                    }
+                    
+                    // Suavizar tonos parciales
+                    const startSmooth = Math.max(2, songPitches.length - chunkSize - 5);
+                    for (let s = startSmooth; s < songPitches.length - 2; s++) {
+                        if (songPitches[s] > 0) {
+                            let n = [songPitches[s - 2], songPitches[s - 1], songPitches[s], songPitches[s + 1], songPitches[s + 2]];
+                            n.sort((a, b) => a - b);
+                            songPitches[s] = n[2];
+                        }
+                    }
 
-                loadingDesc.innerText = "Cargando pista instrumental...";
+                    if (i < len - pitchHopSize) {
+                        const pct = Math.round((i / len) * 100);
+                        loadingDesc.innerText = `Analizando melodía (${pct}%)...`;
+                        setTimeout(analyzeChunk, 0); // Ceder control al navegador para pintar el loader
+                    } else {
+                        loadInstrumentalTrack(instUrl);
+                    }
+                }
+                analyzeChunk();
+
+            } catch (e) {
+                alert(e.message || "Error al inicializar el audio.");
+                window.location.reload();
+            }
+        }
+
+        async function loadInstrumentalTrack(instUrl) {
+            loadingTitle.innerText = "Cargando Pistas";
+            loadingDesc.innerText = "Descargando pista instrumental...";
+            try {
                 const instResponse = await fetch(instUrl);
                 if (!instResponse.ok) throw new Error("No se pudo cargar la pista instrumental.");
                 const instBlob = await instResponse.blob();
@@ -639,9 +781,8 @@
                     document.getElementById('ui-setup').classList.remove('hidden');
                 };
                 instAudio.load();
-
             } catch (e) {
-                alert(e.message || "Error al inicializar el audio.");
+                alert(e.message || "Error al cargar la pista instrumental.");
                 window.location.reload();
             }
         }
@@ -655,17 +796,11 @@
             Object.values(players).forEach(p => {
                 p.score = 0;
                 p.combo = 1;
-                p.matchFrames = 0;
+                p.matchTime = 0;
                 p.history = [];
                 p.volume = 0;
                 p.volumeActive = false;
             });
-
-            // Truco JIT: Saltar análisis de silencios previos
-            analyzedSamples = Math.floor(playStartTime * vocalSampleRate);
-            const startIndex = Math.floor(playStartTime / songHopTime);
-            songPitches = [];
-            for (let i = 0; i < startIndex; i++) songPitches.push(-1);
 
             updatePlayersUI();
             startGame();
@@ -683,6 +818,13 @@
         function startGameMenu() {
             uiStart.classList.add('hidden');
             uiSearch.classList.remove('hidden');
+            
+            // Inicializar AudioContext temprano con un click del usuario para reproducir SFX
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                SFX.init(audioCtx);
+            }
+            SFX.playClick();
         }
 
         function startGame() {
@@ -699,6 +841,7 @@
             instAudio.currentTime = playStartTime;
             instAudio.play();
             isPlaying = true;
+            lastFrameTime = performance.now();
             requestAnimationFrame(gameLoop);
         }
 
@@ -706,7 +849,8 @@
             isPlaying = false;
             if (bgPlayer && bgPlayer.pauseVideo) bgPlayer.pauseVideo();
             instAudio.pause();
-            audioCtx.suspend();
+            SFX.playFanfare(); // Fanfarria final de victoria
+            // Mantener audioCtx activo para que suene la fanfarria
 
             uiGame.classList.add('hidden');
             document.getElementById('ui-summary').classList.remove('hidden');
@@ -741,7 +885,7 @@
         }
 
         function hzToY(hz) {
-            if (hz <= 0) return null;
+            if (hz === undefined || hz === null || isNaN(hz) || !isFinite(hz) || hz <= 0) return null;
             const minLog = Math.log2(80), maxLog = Math.log2(800);
             let logHz = Math.log2(hz);
             if (logHz < minLog) logHz = minLog; if (logHz > maxLog) logHz = maxLog;
@@ -749,7 +893,8 @@
             // Ubicar notas en la parte inferior del canvas (entre 45% y 92% de la altura)
             const topBound = graphHeight * 0.45;
             const bottomBound = graphHeight * 0.92;
-            return bottomBound - (((logHz - minLog) / (maxLog - minLog)) * (bottomBound - topBound));
+            const y = bottomBound - (((logHz - minLog) / (maxLog - minLog)) * (bottomBound - topBound));
+            return isNaN(y) || !isFinite(y) ? null : y;
         }
 
         function autoCorrelate(buf, sampleRate) {
@@ -765,33 +910,12 @@
             let d = 0; while (c[d] > c[d + 1]) d++;
             let maxval = -1, maxpos = -1;
             for (let i = d; i < SIZE; i++) { if (c[i] > maxval) { maxval = c[i]; maxpos = i; } }
+            
+            if (maxpos <= 0) return -1; // Evitar división por cero o valor infinito
             return sampleRate / maxpos;
         }
 
-        function analyzeFuture() {
-            if (!rawVocalData || !isPlaying) return;
-            const now = instAudio.currentTime;
-
-            const targetTime = now + 4.0;
-            const targetSample = Math.floor(targetTime * vocalSampleRate);
-            const maxSample = Math.min(targetSample, rawVocalData.length - pitchHopSize);
-
-            while (analyzedSamples < maxSample) {
-                const chunk = rawVocalData.subarray(analyzedSamples, analyzedSamples + pitchHopSize);
-                let hz = autoCorrelate(chunk, vocalSampleRate);
-                songPitches.push(hz);
-                analyzedSamples += pitchHopSize;
-            }
-
-            // Suavizar tonos
-            for (let i = Math.max(2, songPitches.length - 20); i < songPitches.length - 2; i++) {
-                if (songPitches[i] > 0) {
-                    let n = [songPitches[i - 2], songPitches[i - 1], songPitches[i], songPitches[i + 1], songPitches[i + 2]];
-                    n.sort((a, b) => a - b);
-                    songPitches[i] = n[2];
-                }
-            }
-        }
+        // El análisis de tono se realiza por completo de forma fraccionada durante la pantalla de carga.
 
         function gameLoop() {
             if (!isPlaying) return;
@@ -802,6 +926,11 @@
                 return;
             }
 
+            const currentRealTime = performance.now();
+            const dt = (currentRealTime - lastFrameTime) / 1000.0;
+            lastFrameTime = currentRealTime;
+            const dtCapped = Math.min(dt, 0.1);
+
             // Actualizar barra de progreso
             const progressPct = Math.min(100, Math.max(0, ((now - playStartTime) / (playEndTime - playStartTime)) * 100));
             document.getElementById('progress-bar').style.width = progressPct + '%';
@@ -811,13 +940,12 @@
             const secs = Math.floor(timeLeft % 60).toString().padStart(2, '0');
             document.getElementById('time-remaining').innerText = `- ${mins}:${secs}`;
 
-            // Calcular y procesar tonos
-            analyzeFuture();
+            // El tono está preanalizado, no requiere cálculo en tiempo real
 
             const targetIdx = Math.floor(now / songHopTime);
             const targetHz = targetIdx < songPitches.length ? songPitches[targetIdx] : -1;
             const targetY = hzToY(targetHz);
-            const hasVocals = targetHz > 0 && targetY !== null;
+            const hasVocals = targetHz > 0 && targetY !== null && !isNaN(targetY) && isFinite(targetY);
 
             const playX = graphWidth / 2;
             const numPlayers = Object.keys(players).length;
@@ -836,9 +964,10 @@
                     p.history.push({ time: now, y: userY, vol: userVol, active: true });
                     p.volumeActive = true;
 
-                    // Puntuación proporcional al volumen (max ~45 puntos/frame)
-                    const basePoints = Math.floor(userVol * 45);
-                    const pointsAdded = basePoints * p.combo;
+                    // Puntuación proporcional al volumen y combo basada en delta time (independiente de fps)
+                    // max 800 pts/segundo a combo 1 (un poco más lento y estable)
+                    const pointsPerSecond = userVol * 800 * p.combo;
+                    const pointsAdded = pointsPerSecond * dtCapped;
                     p.score += pointsAdded;
 
                     // Partículas
@@ -855,22 +984,28 @@
                     }
 
                     // Flotantes
-                    if (Math.random() > 0.88) {
+                    const pointsAddedRounded = Math.round(pointsAdded);
+                    if (Math.random() > 0.88 && pointsAddedRounded > 0) {
                         floatingTexts.push({
                             x: playX + (Math.random() - 0.5) * 60,
                             y: userY - 20,
-                            text: `${p.name}: +${pointsAdded}`,
+                            text: `${p.name}: +${pointsAddedRounded}`,
                             life: 0.9,
                             color: p.color,
                             isWord: false
                         });
                     }
 
-                    // Combos
-                    p.matchFrames++;
-                    if (p.matchFrames > 25 && p.combo < 2) p.combo = 2;
-                    if (p.matchFrames > 75 && p.combo < 3) p.combo = 3;
-                    if (p.matchFrames > 150) p.combo = 4;
+                    // Combos (escalados en segundos usando delta time)
+                    p.matchTime += dtCapped;
+                    let oldCombo = p.combo;
+                    if (p.matchTime > 0.5 && p.combo < 2) p.combo = 2;
+                    if (p.matchTime > 1.5 && p.combo < 3) p.combo = 3;
+                    if (p.matchTime > 3.0 && p.combo < 4) p.combo = 4;
+                    
+                    if (p.combo > oldCombo) {
+                        SFX.playCombo(); // Reproducir sonido de subida de combo
+                    }
 
                 } else {
                     // No canta o no hay voz original
@@ -880,11 +1015,11 @@
                     if (!hasVocals) {
                         // Penalizar si gritan en el silencio
                         if (userVol > 0.025) {
-                            p.matchFrames = 0;
+                            p.matchTime = 0;
                             p.combo = 1;
                         }
                     } else {
-                        p.matchFrames = 0;
+                        p.matchTime = 0;
                         p.combo = 1;
                     }
                 }
@@ -933,14 +1068,16 @@
                 }
             }
 
-            drawCanvas(now, targetY, hasVocals);
+            drawCanvas(now, targetY, hasVocals, dtCapped);
             
             requestAnimationFrame(gameLoop);
         }
 
-        function drawCanvas(now, targetY, hasVocals) {
+        function drawCanvas(now, targetY, hasVocals, dtCapped) {
             ctx.clearRect(0, 0, graphWidth, graphHeight);
             const pps = graphWidth / TIME_WINDOW, playX = graphWidth / 2;
+            const numPlayers = Object.keys(players).length;
+            const dtRatio = dtCapped / 0.01667;
 
             // Dibujar rejilla
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
@@ -1030,9 +1167,9 @@
             // Partículas
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life -= 0.04;
+                p.x += p.vx * dtRatio;
+                p.y += p.vy * dtRatio;
+                p.life -= 0.04 * dtRatio;
                 if (p.life <= 0) {
                     particles.splice(i, 1);
                     continue;
@@ -1075,8 +1212,8 @@
             ctx.font = "bold 16px Outfit";
             for (let i = floatingTexts.length - 1; i >= 0; i--) {
                 let ft = floatingTexts[i];
-                ft.y -= 1.2;
-                ft.life -= 0.025;
+                ft.y -= 1.2 * dtRatio;
+                ft.life -= 0.025 * dtRatio;
                 if (ft.life <= 0) {
                     floatingTexts.splice(i, 1);
                     continue;
