@@ -12,6 +12,8 @@ import uuid
 import traceback
 import hashlib
 import re
+import socket
+import asyncio
 
 app = FastAPI(title="Neon SingStar API con Demucs (Verbose)")
 
@@ -30,36 +32,18 @@ TRACKS_DIR = "separated_tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
 app.mount("/tracks", StaticFiles(directory=TRACKS_DIR), name="tracks")
 
-# WebRTC Signaling Manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: dict[str, WebSocket] = {}
+# Servidor SingStar Local (P2P manejado por PeerJS en frontend)
 
-    async def connect(self, websocket: WebSocket, client_id: str):
-        await websocket.accept()
-        self.active_connections[client_id] = websocket
-
-    def disconnect(self, client_id: str):
-        if client_id in self.active_connections:
-            del self.active_connections[client_id]
-
-    async def send_message(self, message: dict, client_id: str):
-        if client_id in self.active_connections:
-            await self.active_connections[client_id].send_json(message)
-
-manager = ConnectionManager()
-
-@app.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    await manager.connect(websocket, client_id)
+@app.get("/api/local_ip")
+async def get_local_ip():
     try:
-        while True:
-            data = await websocket.receive_json()
-            target_id = data.get("target")
-            if target_id:
-                await manager.send_message(data, target_id)
-    except WebSocketDisconnect:
-        manager.disconnect(client_id)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = "127.0.0.1"
+    return {"ip": ip}
 
 @app.get("/api/search")
 async def search_youtube(query: str = Query(...), limit: int = Query(6)):
@@ -142,11 +126,10 @@ async def process_karaoke(url: str = Query(...)):
             print(f"👇 --- SALIDA EN TIEMPO REAL DE DEMUCS --- 👇\n")
 
             try:
-                # El argumento "--two-stems vocals" es LA CLAVE.
-                # Obliga a Demucs a mezclar bass, drums y other en un archivo llamado "no_vocals.wav"
-                process = subprocess.run(
-                    ["demucs", "-n", "mdx_extra_q", "-d", "cuda", "--two-stems", "vocals", "-o", TRACKS_DIR, raw_mp3_path]
+                process = await asyncio.create_subprocess_exec(
+                    "demucs", "-n", "mdx_extra_q", "-d", "cuda", "--two-stems", "vocals", "-o", TRACKS_DIR, raw_mp3_path
                 )
+                await process.wait()
             except FileNotFoundError:
                 print("\n❌ [ERROR CRÍTICO] Comando 'demucs' no encontrado en el PATH.")
                 print("⚠️ Retornando audio original como fallback.")

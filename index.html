@@ -8,7 +8,8 @@
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Outfit', sans-serif;
@@ -57,9 +58,10 @@
             transition: all 0.3s;
         }
 
-        .glass-button:hover {
+        .glass-button:hover:not(:disabled) {
             background: linear-gradient(135deg, rgba(0, 242, 254, 0.3) 0%, rgba(79, 172, 254, 0.3) 100%);
             transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
         }
 
         #bg-video {
@@ -71,10 +73,6 @@
             object-fit: cover;
             z-index: -1;
             transition: filter 1.5s ease;
-        }
-
-        .video-dimmed {
-            filter: brightness(0.2) blur(4px) saturate(0.6);
         }
 
         #pitch-canvas {
@@ -119,65 +117,6 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
         }
-
-        .carousel-container {
-            display: flex;
-            overflow: hidden;
-            width: 100vw;
-            align-items: center;
-            justify-content: flex-start;
-            position: relative;
-            height: 60vh;
-        }
-        .carousel-track {
-            display: flex;
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-            align-items: center;
-            gap: 32px;
-            will-change: transform;
-        }
-        .song-card {
-            width: 320px;
-            height: 320px;
-            border-radius: 20px;
-            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-            opacity: 0.4;
-            transform: scale(0.75);
-            cursor: pointer;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            border: 4px solid transparent;
-            flex-shrink: 0;
-            background: #111;
-        }
-        .song-card.selected {
-            opacity: 1;
-            transform: scale(1.15);
-            border-color: #00f2fe;
-            box-shadow: 0 0 50px rgba(0, 242, 254, 0.4), 0 0 15px rgba(0, 242, 254, 0.8) inset;
-            z-index: 10;
-        }
-        .song-card img {
-            width: 100%;
-            height: 70%;
-            object-fit: cover;
-            border-bottom: 2px solid rgba(255,255,255,0.1);
-        }
-        .song-card .info {
-            height: 30%;
-            background: linear-gradient(to top, #0a0a0f, #1a1a24);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 1rem;
-            font-weight: 800;
-            font-size: 1.15rem;
-            line-height: 1.2;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
     </style>
 </head>
 
@@ -196,82 +135,109 @@
         </button>
     </div>
 
-    <!-- UI 1: Catalog (Switch Style) -->
-    <div id="ui-search" class="hidden absolute inset-0 flex flex-col items-center bg-black/80 backdrop-blur-xl z-20 transition-opacity duration-500">
-        
-        <div class="absolute top-8 w-full px-12 flex items-center justify-between z-30">
-            <h2 class="text-4xl font-black uppercase tracking-[0.2em] text-gradient-pink drop-shadow-lg">SingStar Pro</h2>
-            <div class="bg-indigo-900/80 border border-indigo-500/50 rounded-2xl p-4 flex items-center gap-6 shadow-2xl backdrop-blur-md">
-                <div id="qrcode" class="bg-white p-2 rounded-xl shadow-lg transition-transform hover:scale-150 origin-top-right cursor-pointer"></div>
-                <div class="flex flex-col gap-2">
-                    <span class="text-sm font-bold text-indigo-200">USAR MÓVIL COMO MICRO (SIN CABLES):</span>
-                    <div class="flex gap-4 items-center">
-                        <div id="mic-status" class="px-4 py-2 bg-black/60 rounded-full text-xs font-bold text-gray-400 border border-white/10 flex items-center gap-2">
-                            <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse" id="mic-dot"></div> <span id="mic-status-text">Esperando conexión...</span>
-                        </div>
+    <!-- UI 1: Search and Lobby Dashboard -->
+    <div id="ui-search" class="hidden absolute inset-0 flex flex-col bg-black/90 backdrop-blur-xl z-20 overflow-y-auto p-12">
+        <!-- Cabecera -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-6 mb-8">
+            <h2 class="text-5xl font-black uppercase tracking-[0.2em] text-gradient-cyan drop-shadow-[0_0_30px_rgba(0,242,254,0.3)]">SingStar AI</h2>
+            <span class="text-sm font-black text-pink-500 tracking-widest uppercase bg-pink-500/10 px-4 py-2 rounded-full border border-pink-500/20">Modo Multijugador PeerJS (HTTPS)</span>
+        </div>
+
+        <!-- Cuerpo principal dividido -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
+            <!-- Panel Izquierdo: Conectividad y Jugadores (4 columnas) -->
+            <div class="lg:col-span-4 flex flex-col gap-6 glass p-8 rounded-3xl h-[62vh]">
+                <h3 class="text-xl font-bold uppercase tracking-wider text-pink-400 border-b border-white/5 pb-2">1. Conectar Teléfonos</h3>
+                <div class="flex items-center gap-4 bg-indigo-950/40 p-4 rounded-2xl border border-indigo-500/25">
+                    <div id="qrcode" class="bg-white p-1.5 rounded-xl shadow-lg transition-transform hover:scale-150 origin-left cursor-pointer flex-shrink-0"></div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs font-bold text-indigo-300">ESCANEAME (HTTPS MÓVIL)</span>
+                        <span class="text-[10px] text-indigo-400 font-semibold" id="peer-id-display">Inicializando PeerJS...</span>
+                    </div>
+                </div>
+                <div class="flex-1 flex flex-col">
+                    <span class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Jugadores en la sala:</span>
+                    <div id="lobby-players" class="flex-1 overflow-y-auto flex flex-col gap-3 pr-2">
+                        <div class="text-sm text-gray-500 italic text-center my-auto">Esperando que se conecten jugadores...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Derecho: Elegir Canción (8 columnas) -->
+            <div class="lg:col-span-8 flex flex-col gap-6 glass p-8 rounded-3xl h-[62vh]">
+                <h3 class="text-xl font-bold uppercase tracking-wider text-cyan-400 border-b border-white/5 pb-2">2. Elegir Canción</h3>
+                
+                <!-- Buscador de YouTube -->
+                <div class="flex gap-4">
+                    <input type="text" id="search-input" placeholder="Buscar canción en YouTube (ej. Bruno Mars - Uptown Funk)..." 
+                           class="flex-1 glass-input px-5 py-4 rounded-2xl text-lg font-bold">
+                    <button onclick="performSearch()" class="glass-button px-8 rounded-2xl font-bold uppercase tracking-wider text-white">
+                        Buscar
+                    </button>
+                </div>
+
+                <!-- Input alternativo de URL directa -->
+                <div class="flex gap-4 items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-widest flex-shrink-0">O pegar URL:</span>
+                    <input type="text" id="direct-url-input" placeholder="https://www.youtube.com/watch?v=..." 
+                           class="flex-1 glass-input px-4 py-2.5 rounded-xl text-sm font-semibold">
+                </div>
+
+                <!-- Resultados de Búsqueda -->
+                <div class="flex-1 overflow-y-auto min-h-0">
+                    <div id="search-results" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="col-span-2 text-sm text-gray-500 text-center my-auto">Busca una canción o pega una URL para empezar.</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Carousel -->
-        <div class="carousel-container mt-[15vh]" id="carousel-container">
-            <div class="carousel-track" id="carousel-track"></div>
-        </div>
-
-        <!-- Controls -->
-        <div class="absolute bottom-16 flex flex-col items-center gap-6 z-30">
-            <button onclick="selectCurrentSong()" class="glass-button px-16 py-6 text-3xl font-black rounded-full text-white tracking-widest hover:scale-110 transition-transform shadow-[0_0_30px_rgba(0,242,254,0.5)] flex items-center gap-4 border-cyan-500/50 bg-cyan-900/20">
-                ▶ JUGAR
+        <!-- Botón de acción principal al fondo -->
+        <div class="mt-8 flex justify-center">
+            <button id="process-btn" disabled onclick="processSelectedSong()" 
+                    class="glass-button px-20 py-5 text-2xl font-black rounded-full text-white tracking-widest hover:scale-105 transition-all shadow-[0_0_30px_rgba(0,242,254,0.15)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 border-cyan-500/50 bg-cyan-900/20">
+                SEPARAR VOCES Y JUGAR 🚀
             </button>
-            <div class="text-gray-400 font-bold tracking-widest text-sm flex gap-8">
-                <span class="flex items-center gap-2"><div class="px-2 py-1 bg-white/10 rounded border border-white/20">⬅</div> <div class="px-2 py-1 bg-white/10 rounded border border-white/20">➡</div> NAVEGAR</span>
-                <span class="flex items-center gap-2"><div class="px-2 py-1 bg-white/10 rounded border border-white/20">ENTER</div> SELECCIONAR</span>
-            </div>
         </div>
 
         <!-- Invisible YT Player -->
         <div id="yt-player" class="hidden"></div>
     </div>
 
-    <!-- UI 2: Cargando -->
-    <div id="ui-loading"
-        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-20 pointer-events-none">
-        <div class="glass p-10 rounded-3xl flex flex-col items-center min-w-[400px]">
+    <!-- UI 2: Cargando con Lobby Activo -->
+    <div id="ui-loading" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md z-40">
+        <div class="glass p-10 rounded-3xl flex flex-col items-center min-w-[450px] shadow-2xl border border-cyan-500/20">
             <div class="loader mb-6"></div>
             <h2 class="text-2xl font-bold text-gradient-cyan text-center mb-2" id="loading-title">Procesando con IA</h2>
-            <p class="text-gray-300 text-center text-sm font-semibold" id="loading-desc">Demucs está separando la música
-                (Esto tarda unos minutos)...</p>
+            <p class="text-gray-300 text-center text-sm font-semibold mb-6" id="loading-desc">Demucs está separando la música (Esto tarda unos minutos)...</p>
+            
+            <div class="w-full border-t border-white/10 pt-6">
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-widest block text-center mb-4">Jugadores uniéndose mientras se procesa:</span>
+                <div id="loading-players-list" class="flex flex-wrap gap-3 justify-center">
+                    <span class="text-sm text-gray-500 italic">Nadie conectado todavía...</span>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- UI 2.5: Configuración de Tiempo -->
-    <div id="ui-setup"
-        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20">
+    <div id="ui-setup" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20">
         <div class="glass p-10 rounded-3xl w-full max-w-lg flex flex-col items-center shadow-2xl">
-            <h2 class="text-3xl font-black text-center uppercase tracking-widest text-gradient-cyan mb-6">Configurar
-                Prueba</h2>
-            <p class="text-gray-400 mb-6 text-center text-sm">Elige en qué segundo quieres empezar y terminar de cantar.
-            </p>
+            <h2 class="text-3xl font-black text-center uppercase tracking-widest text-gradient-cyan mb-6">Configurar Canción</h2>
+            <p class="text-gray-400 mb-6 text-center text-sm">Elige el intervalo de tiempo para cantar.</p>
             <div class="flex gap-6 w-full mb-8">
                 <div class="w-1/2 flex flex-col">
-                    <label class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Inicio
-                        (s)</label>
-                    <input type="number" id="setup-start"
-                        class="glass-input px-4 py-3 rounded-xl text-2xl text-center font-mono text-cyan-400" value="0"
-                        min="0">
+                    <label class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Inicio (s)</label>
+                    <input type="number" id="setup-start" class="glass-input px-4 py-3 rounded-xl text-2xl text-center font-mono text-cyan-400" value="0" min="0">
                 </div>
                 <div class="w-1/2 flex flex-col">
-                    <label class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Fin
-                        (s)</label>
-                    <input type="number" id="setup-end"
-                        class="glass-input px-4 py-3 rounded-xl text-2xl text-center font-mono text-pink-400" value="60"
-                        min="5">
+                    <label class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 text-center">Fin (s)</label>
+                    <input type="number" id="setup-end" class="glass-input px-4 py-3 rounded-xl text-2xl text-center font-mono text-pink-400" value="60" min="5">
                 </div>
             </div>
-            <button onclick="startConfiguredGame()"
-                class="glass-button w-full py-4 font-black uppercase tracking-widest rounded-2xl text-white text-lg hover:shadow-[0_0_20px_rgba(0,242,254,0.4)]">¡A
-                Cantar!</button>
+            <button onclick="startConfiguredGame()" class="glass-button w-full py-4 font-black uppercase tracking-widest rounded-2xl text-white text-lg hover:shadow-[0_0_20px_rgba(0,242,254,0.4)]">
+                ¡A Cantar!
+            </button>
         </div>
     </div>
 
@@ -279,66 +245,40 @@
     <div id="ui-game" class="hidden absolute inset-0 z-10">
         <!-- Barra de Progreso Superior -->
         <div class="absolute top-6 left-1/2 transform -translate-x-1/2 w-3/4 max-w-3xl z-20 flex flex-col items-center">
-            <span id="time-remaining"
-                class="text-cyan-100 font-mono font-bold text-lg mb-2 drop-shadow-[0_0_8px_rgba(0,242,254,0.8)]">00:00</span>
-            <div
-                class="w-full h-4 bg-black/40 backdrop-blur-md rounded-full overflow-hidden border border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
-                <div id="progress-bar"
-                    class="h-full w-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-pink-500 shadow-[0_0_15px_rgba(255,8,68,0.8)] transition-all duration-100">
-                </div>
+            <span id="time-remaining" class="text-cyan-100 font-mono font-bold text-lg mb-2 drop-shadow-[0_0_8px_rgba(0,242,254,0.8)]">00:00</span>
+            <div class="w-full h-4 bg-black/40 backdrop-blur-md rounded-full overflow-hidden border border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
+                <div id="progress-bar" class="h-full w-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-pink-500 shadow-[0_0_15px_rgba(255,8,68,0.8)] transition-all duration-100"></div>
             </div>
         </div>
 
-        <div
-            class="absolute right-12 top-1/2 transform -translate-y-1/2 glass px-12 py-10 rounded-3xl flex flex-col items-center shadow-2xl">
-            <span class="text-gray-400 text-sm font-bold uppercase tracking-[0.3em] mb-2">Score</span>
-            <div id="score-display" class="text-7xl font-black text-white drop-shadow-[0_0_15px_rgba(255,8,68,0.5)]">0
-            </div>
-
-            <div class="mt-6 flex flex-col items-center opacity-0 transition-opacity duration-300" id="combo-container">
-                <span class="text-cyan-400 text-xs font-bold uppercase tracking-widest">Combo</span>
-                <div class="text-4xl font-black text-gradient-cyan mt-1" id="combo-display">x1</div>
+        <!-- Tarjetas de Puntuación de Múltiples Jugadores a la Derecha -->
+        <div id="players-score-container" class="absolute right-12 top-1/2 transform -translate-y-1/2 glass px-8 py-8 rounded-3xl flex flex-col gap-6 shadow-2xl min-w-[280px] max-h-[80vh] overflow-y-auto z-20">
+            <h3 class="text-gray-400 text-xs font-bold uppercase tracking-[0.3em] text-center border-b border-white/10 pb-3">Puntuación</h3>
+            <div id="players-list-game" class="flex flex-col gap-4">
+                <!-- Dinámico: Tarjetas de puntuación de jugadores -->
             </div>
         </div>
 
         <canvas id="pitch-canvas"></canvas>
     </div>
 
-    <!-- UI 4: Resumen -->
-    <div id="ui-summary"
-        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-lg z-30">
-        <div
-            class="glass p-12 rounded-3xl w-full max-w-xl flex flex-col items-center shadow-2xl border border-pink-500/30">
-            <h2 class="text-4xl font-black mb-2 text-center uppercase tracking-[0.2em] text-gradient-pink">Resumen de
-                Actuación</h2>
-            <span class="text-gray-400 text-sm font-bold uppercase tracking-[0.3em] mt-4">Puntuación Final</span>
-            <div class="text-7xl font-black text-white drop-shadow-[0_0_20px_rgba(0,242,254,0.8)] mb-8"
-                id="summary-score">0</div>
-
-            <div class="w-full grid grid-cols-3 gap-4 mb-10">
-                <div class="glass p-4 rounded-2xl flex flex-col items-center border border-cyan-500/20">
-                    <span class="text-[10px] uppercase font-bold text-cyan-400 mb-1 tracking-widest">Afinación</span>
-                    <span class="text-2xl font-bold font-mono text-white" id="summary-pitch">0%</span>
-                </div>
-                <div class="glass p-4 rounded-2xl flex flex-col items-center border border-green-500/20">
-                    <span class="text-[10px] uppercase font-bold text-green-400 mb-1 tracking-widest">Tiempo</span>
-                    <span class="text-2xl font-bold font-mono text-white" id="summary-time">0%</span>
-                </div>
-                <div class="glass p-4 rounded-2xl flex flex-col items-center border border-yellow-500/20">
-                    <span class="text-[10px] uppercase font-bold text-yellow-400 mb-1 tracking-widest">Volumen</span>
-                    <span class="text-2xl font-bold font-mono text-white" id="summary-vol">0%</span>
-                </div>
+    <!-- UI 4: Resumen / Leaderboard Final -->
+    <div id="ui-summary" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg z-30">
+        <div class="glass p-12 rounded-3xl w-full max-w-2xl flex flex-col items-center shadow-2xl border border-pink-500/30 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-4xl font-black mb-2 text-center uppercase tracking-[0.2em] text-gradient-pink">Leaderboard Final</h2>
+            <span class="text-gray-400 text-sm font-bold uppercase tracking-[0.3em] mt-2 mb-6">Resultados del Grupo</span>
+            
+            <div id="leaderboard-list" class="w-full flex flex-col gap-4 mb-10">
+                <!-- Dinámico: Filas de jugadores con sus puntuaciones -->
             </div>
 
-            <button onclick="window.location.reload()"
-                class="glass-button px-10 py-4 font-bold rounded-2xl text-white tracking-wide uppercase hover:shadow-[0_0_20px_rgba(255,8,68,0.4)]">Probar
-                Otra Canción</button>
+            <button onclick="window.location.reload()" class="glass-button px-10 py-4 font-bold rounded-2xl text-white tracking-wide uppercase hover:shadow-[0_0_20px_rgba(255,8,68,0.4)]">
+                Cantar otra canción
+            </button>
         </div>
     </div>
 
-
     <script>
-
         const uiSearch = document.getElementById('ui-search');
         const uiStart = document.getElementById('ui-start');
         const uiLoading = document.getElementById('ui-loading');
@@ -346,145 +286,391 @@
 
         const pitchCanvas = document.getElementById('pitch-canvas');
         const ctx = pitchCanvas.getContext('2d');
-        const scoreDisplay = document.getElementById('score-display');
-        const comboContainer = document.getElementById('combo-container');
-        const comboDisplay = document.getElementById('combo-display');
         const loadingTitle = document.getElementById('loading-title');
         const loadingDesc = document.getElementById('loading-desc');
 
-        let audioCtx, micAnalyser, instAudio;
+        let audioCtx, instAudio;
         let isPlaying = false;
-        let score = 0, combo = 1, matchFrames = 0;
-
-        const TIME_WINDOW = 6;
+        
         let songPitches = [];
         let songHopTime = 0;
-        let userHistory = [], particles = [], floatingTexts = [];
-        let graphWidth, graphHeight;
-
-        // --- VARIABLES DE ANÁLISIS EN TIEMPO REAL ---
-        let rawVocalData = null;
-        let vocalSampleRate = 44100;
         let pitchHopSize = 2048;
+        let vocalSampleRate = 44100;
         let analyzedSamples = 0;
-
-        // --- VARIABLES DE SESIÓN Y MÉTRICAS ---
+        let rawVocalData = null;
+        
         let playStartTime = 0, playEndTime = 0;
-        let statsTotalPitches = 0, statsMatchedPitches = 0;
-        let statsVolumeSum = 0, statsVolumeCount = 0;
-        let statsTimingScore = 0, statsTimingCount = 0;
+        const TIME_WINDOW = 6;
+        let particles = [], floatingTexts = [];
+        let graphWidth, graphHeight;
+        let frameCount = 0;
 
-        // --- NUEVAS VARIABLES DE JUEGO ---
-        const LATENCY_OFFSET = 0.05; // Delay ultra bajo para micro local (50ms)
-        const FEEDBACK_WORDS = ["¡PERFECTO!", "¡GENIAL!", "¡BRUTAL!", "¡IMPRESIONANTE!", "¡WOW!", "¡INCREÍBLE!"];
-        let lastFeedbackTime = 0;
-
-        // --- Catálogo de canciones modernas y bailables ---
-        const defaultCatalog = [
-            { title: "Dua Lipa - Don't Start Now", ytId: "oygrmJFKYZY", vocalsId: "a80f749b-6430-4c11-9c5f-97e44def8da9.wav", instId: "27997a23-0af2-409e-a3f2-ae07727182fd.wav" },
-            { title: "The Weeknd - Blinding Lights", ytId: "4NRXx6U8ABQ", vocalsId: "0e35705a-d681-447f-84c1-0dbbf07df6a6.wav", instId: "da016266-c2e1-4774-8d3d-e9fcfa241425.wav" },
-            { title: "Bizarrap & Quevedo - Bzrp Music Sessions, Vol. 52", ytId: "A_g3lMcWVy0", vocalsId: "3dbe796a-3a7c-4469-93ae-64732bb7c793.wav", instId: "f77e0893-150b-4051-80d5-d3946d8895ef.wav" },
-            { title: "Rosalía - DESPECHÁ", ytId: "5g2hT4GmAGU", vocalsId: "c73a2d20-bf1d-436e-881c-fd251fa2b8a9.wav", instId: "53072f3d-eeda-4761-9636-272e25f71763.wav" },
-            { title: "Shakira - Hips Don't Lie", ytId: "DUT5rEU6pqM", vocalsId: "4c1f32c6-76e7-4ca4-a384-fb9f96f0293b.wav", instId: "a9c522d3-2160-46cc-a2d7-e9490a5cf284.wav" },
-            { title: "Queen - Don't Stop Me Now", ytId: "HgzGwKwLmgM", vocalsId: "a1f5b2f0-ed05-41d4-a27a-7a101ae351da.wav", instId: "7bb0a083-4c1a-4821-bf1f-8e2b8f6e3254.wav" },
-            { title: "Luis Fonsi - Despacito", ytId: "kJQP7kiw5Fk", vocalsId: "ea964630-5c03-4199-a470-7026e174d966.wav", instId: "7f5a53b8-c6c6-48bf-a6a9-035acacee002.wav" },
-            { title: "Rihanna - Don't Stop The Music", ytId: "yd8jh9QYfEs", vocalsId: "8900ea14-6d7f-4368-bac6-b3c9802fd976.wav", instId: "8fa9b648-92bc-483f-9bf0-0f66cc282438.wav" },
-            { title: "Bad Bunny - Tití Me Preguntó", ytId: "Cr8K88UcO0s", vocalsId: "7d92a4e1-735e-4b96-ba05-0d72b83087a0.wav", instId: "65cde965-53e1-4d3a-b057-f3ad0eb92ab3.wav" },
-            { title: "Britney Spears - Toxic", ytId: "LOZuxwVk7TU", vocalsId: "342cd068-3160-47ba-90b2-ae6dc8a1c71d.wav", instId: "6959b648-2954-4872-b089-2e51378775ec.wav" },
-            { title: "Avicii - Wake Me Up", ytId: "IcrbM1l_BoI", vocalsId: "17d4b534-366b-4419-8422-c29ec48451c4.wav", instId: "0ce44107-02f3-43fc-aa4a-444b49cea730.wav" },
-            { title: "Daddy Yankee - Gasolina", ytId: "CCF1_jI8Prk", vocalsId: "6dfdc153-8e9b-42c4-817b-354693cc2094.wav", instId: "4db37cdf-907b-492e-ae5f-e31eb77cdc84.wav" },
-            { title: "Michael Jackson - Billie Jean", ytId: "Zi_XLOBDo_Y", vocalsId: "5d88e31a-871c-42c8-9155-c1e1824c9ddf.wav", instId: "15d22886-be40-46df-ad80-5a5a40346cc8.wav" },
-            { title: "ABBA - Dancing Queen", ytId: "xFrGuyw1V8s", vocalsId: "9fdceb32-f778-492e-a67a-0a313171afaa.wav", instId: "447d9b88-fc98-46ac-acc7-cf0b0ddc248a.wav" },
-            { title: "Lady Gaga - Bad Romance", ytId: "qrO4YZeyl0I", vocalsId: "a195cf1c-b826-42d3-b3ca-27c2f50323cb.wav", instId: "a126d4cb-ed20-4da0-b334-f8cfdb17d8ba.wav" },
-            { title: "Bruno Mars - Uptown Funk", ytId: "OPf0YbXqDm0", vocalsId: "97c7a4fc-8cfb-4050-9724-1a6a8f30d663.wav", instId: "6e7f5b02-2098-4dc9-a7b5-c32bb7d0a299.wav" },
-            { title: "Daft Punk - Get Lucky", ytId: "5NV6Rdv1a3I", vocalsId: "a4f260a6-67a6-47b2-abba-fba3951ff2f5.wav", instId: "5c357c69-f450-40d9-8067-e4e9d5e8d45b.wav" },
-            { title: "Whitney Houston - I Wanna Dance With Somebody", ytId: "eH3giaIzONA", vocalsId: "2ae675d4-c1c7-4926-ad66-255f249ee5e9.wav", instId: "82e9dda8-7470-4b00-9335-1e1e3c53b115.wav" },
-            { title: "Earth, Wind & Fire - September", ytId: "Gs069dndIYk", vocalsId: "c4965886-0b0e-4a2a-a1d2-01ecf5e1ad87.wav", instId: "aa47d8a3-dee6-4718-95c5-10188f98a5a2.wav" },
-            { title: "David Guetta ft. Sia - Titanium", ytId: "JRfuAukYTKg", vocalsId: "8e8363b0-23c1-4b39-8d67-2aab0ca7c864.wav", instId: "6cc35189-66f4-4183-aae5-f528fc02a0ea.wav" }
+        // --- SISTEMA DE MULTIJUGADOR PEERJS ---
+        let peer = null;
+        let players = {};
+        const PLAYER_COLORS = [
+            '#00f2fe', // Cyan
+            '#ff0844', // Pink
+            '#96c93d', // Green
+            '#ffb300', // Yellow
+            '#e040fb', // Purple
+            '#ff6d00', // Orange
+            '#00e676', // Bright Green
+            '#2979ff'  // Bright Blue
         ];
+        let colorIdx = 0;
 
-        let peer;
+        let selectedSong = null;
+        let bgPlayer;
 
-        function connectMobileMic() {
-            // ID más único usando el tiempo actual
+        // Inicializar Host PeerJS para conectar con teléfonos desde HTTPS
+        function initHostPeerJS() {
             const pcId = 'ss-pc-' + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000);
-            let currentUrl = window.location.href.split('?')[0];
-            if (currentUrl.endsWith('index.html')) currentUrl = currentUrl.replace('index.html', '');
-            if (!currentUrl.endsWith('/')) currentUrl += '/';
-            
-            const mobileUrl = `${currentUrl}mic.html?target=${pcId}`;
-            console.log("Mobile URL:", mobileUrl);
-
-            document.getElementById('qrcode').innerHTML = "";
-            new QRCode(document.getElementById("qrcode"), {
-                text: mobileUrl,
-                width: 80,
-                height: 80,
-                colorDark : "#0a0a0f",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.L
-            });
             
             peer = new Peer(pcId);
 
             peer.on('open', (id) => {
-                console.log('PC listo con ID:', id);
-                document.getElementById('mic-status-text').innerText = "Esperando conexión...";
+                console.log("Host PeerJS ID:", id);
+                document.getElementById('peer-id-display').innerText = `ID Partida: ${id}`;
+                
+                // QR apunta a GitHub Pages (HTTPS)
+                const mobileUrl = `https://logise1.github.io/singstar/mic.html?target=${id}`;
+                console.log("Mobile Connection HTTPS URL:", mobileUrl);
+                
+                document.getElementById('qrcode').innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), {
+                    text: mobileUrl,
+                    width: 100,
+                    height: 100,
+                    colorDark : "#030305",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.M
+                });
             });
 
-            peer.on('call', (call) => {
-                console.log('Recibiendo llamada del móvil...');
-                call.answer();
-                call.on('stream', (remoteStream) => {
-                    window.mobileAudioStream = remoteStream;
-                    const statusText = document.getElementById('mic-status-text');
-                    const dot = document.getElementById('mic-dot');
-                    statusText.innerText = '¡Móvil Conectado!';
-                    statusText.style.color = '#96c93d';
-                    dot.classList.remove('bg-red-500', 'animate-pulse');
-                    dot.classList.add('bg-green-500');
-                    if (micAnalyser && audioCtx) {
-                        try {
-                            audioCtx.createMediaStreamSource(remoteStream).connect(micAnalyser);
-                        } catch(e) { console.error("Error conectando stream:", e); }
+            // Al recibir conexiones de datos de micrófonos móviles
+            peer.on('connection', (conn) => {
+                console.log("Conexión P2P establecida desde peer:", conn.peer);
+                
+                conn.on('data', (data) => {
+                    if (data.type === "join") {
+                        addPlayer(data.name, conn);
+                    } else if (data.type === "volume") {
+                        updatePlayerVolume(data.name, data.volume);
                     }
+                });
+
+                conn.on('close', () => {
+                    removePlayerByConn(conn);
                 });
             });
 
             peer.on('error', (err) => {
-                console.error("PeerJS Error (PC):", err.type);
+                console.error("PeerJS Host Error:", err);
                 if (err.type === 'unavailable-id') {
-                    // Si el ID está ocupado, reintentamos con otro
-                    connectMobileMic();
-                } else {
-                    document.getElementById('mic-status-text').innerText = "Error conexión: " + err.type;
+                    initHostPeerJS(); // Reintentar con otro ID
                 }
             });
         }
 
-        window.onload = () => {
-            renderCatalog(defaultCatalog);
-            try {
-                connectMobileMic();
-            } catch (e) {
-                console.error("Error al iniciar PeerJS/Mic:", e);
+        function addPlayer(name, conn) {
+            if (players[name]) {
+                // Si ya existe, actualizamos su canal de datos
+                players[name].conn = conn;
+                return;
             }
+            
+            const color = PLAYER_COLORS[colorIdx % PLAYER_COLORS.length];
+            const offsetIdx = colorIdx;
+            colorIdx++;
+            
+            players[name] = {
+                name: name,
+                color: color,
+                colorIdxOffset: offsetIdx,
+                score: 0,
+                volume: 0,
+                combo: 1,
+                matchFrames: 0,
+                history: [],
+                conn: conn,
+                volumeActive: false
+            };
+            updatePlayersUI();
+        }
+
+        function removePlayerByConn(conn) {
+            for (let name in players) {
+                if (players[name].conn === conn) {
+                    delete players[name];
+                    updatePlayersUI();
+                    break;
+                }
+            }
+        }
+
+        function updatePlayerVolume(name, volume) {
+            if (players[name]) {
+                players[name].volume = volume;
+            }
+        }
+
+        function updatePlayersUI() {
+            // Panel de Lobby (Izquierda)
+            const lobbyList = document.getElementById('lobby-players');
+            if (lobbyList) {
+                lobbyList.innerHTML = '';
+                const list = Object.values(players);
+                if (list.length === 0) {
+                    lobbyList.innerHTML = '<div class="text-sm text-gray-500 italic text-center my-auto">Esperando que se conecten jugadores...</div>';
+                } else {
+                    list.forEach(p => {
+                        const row = document.createElement('div');
+                        row.className = "flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 transition-all hover:bg-white/10";
+                        row.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <div class="w-3.5 h-3.5 rounded-full" style="background-color: ${p.color}; box-shadow: 0 0 10px ${p.color}"></div>
+                                <span class="font-bold text-white text-base">${p.name}</span>
+                            </div>
+                            <span class="text-[10px] bg-green-500/20 text-green-400 font-bold px-2.5 py-1 rounded-full border border-green-500/30 uppercase">Listo</span>
+                        `;
+                        lobbyList.appendChild(row);
+                    });
+                }
+            }
+
+            // Lista en pantalla de carga (AI)
+            const loadingList = document.getElementById('loading-players-list');
+            if (loadingList) {
+                loadingList.innerHTML = '';
+                const list = Object.values(players);
+                if (list.length === 0) {
+                    loadingList.innerHTML = '<span class="text-sm text-gray-500 italic">Nadie conectado todavía...</span>';
+                } else {
+                    list.forEach(p => {
+                        const tag = document.createElement('span');
+                        tag.className = "px-4 py-2 rounded-full text-sm font-bold border flex items-center gap-2";
+                        tag.style.borderColor = p.color + '40';
+                        tag.style.backgroundColor = p.color + '15';
+                        tag.style.color = p.color;
+                        tag.innerHTML = `<span class="w-2.5 h-2.5 rounded-full shadow-[0_0_6px_currentColor]" style="background-color: ${p.color}"></span> ${p.name}`;
+                        loadingList.appendChild(tag);
+                    });
+                }
+            }
+
+            // Panel de puntuaciones del juego (Derecha)
+            const gamePlayersList = document.getElementById('players-list-game');
+            if (gamePlayersList) {
+                gamePlayersList.innerHTML = '';
+                Object.values(players).forEach(p => {
+                    const card = document.createElement('div');
+                    card.id = `game-card-${p.name}`;
+                    card.className = "glass p-4 rounded-2xl border flex flex-col gap-2 transition-all min-w-[220px]";
+                    card.style.borderColor = p.color + '30';
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-base" style="color: ${p.color}">${p.name}</span>
+                            <span class="text-[10px] font-black uppercase tracking-widest text-gray-400 px-2 py-0.5 rounded bg-white/10" id="combo-${p.name}">x1</span>
+                        </div>
+                        <div class="text-3xl font-black text-white" id="score-${p.name}">0</div>
+                        <div class="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                            <div class="h-full w-0 transition-all duration-100 rounded-full" id="volbar-${p.name}" style="background-color: ${p.color}; box-shadow: 0 0 10px ${p.color}"></div>
+                        </div>
+                    `;
+                    gamePlayersList.appendChild(card);
+                });
+            }
+        }
+
+        window.onload = () => {
+            initHostPeerJS();
         };
 
-        let selectedIndex = 0;
-        let catalogItems = [];
-        const CARD_WIDTH = 320;
-        const CARD_GAP = 32;
+        // BÚSQUEDA Y SELECCIÓN DE CANCIONES
+        async function performSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
 
-        let ytPlayer;
-        let bgPlayer;
-        function onYouTubeIframeAPIReady() {
-            ytPlayer = new YT.Player('yt-player', {
-                height: '0',
-                width: '0',
-                videoId: '',
-                playerVars: { 'autoplay': 0, 'controls': 0 },
+            const resultsContainer = document.getElementById('search-results');
+            resultsContainer.innerHTML = '<div class="col-span-2 text-center text-cyan-400 font-bold animate-pulse py-12">Buscando en YouTube...</div>';
+
+            try {
+                const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                resultsContainer.innerHTML = '';
+                if (!data || data.length === 0) {
+                    resultsContainer.innerHTML = '<div class="col-span-2 text-center text-gray-500 py-12">No se encontraron resultados.</div>';
+                    return;
+                }
+
+                data.forEach(song => {
+                    const card = document.createElement('div');
+                    card.className = "flex gap-4 bg-white/5 border border-white/10 p-3 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-cyan-500/40 transition-all items-center song-select-card";
+                    card.onclick = () => selectSongFromSearch(song);
+                    card.innerHTML = `
+                        <img src="${song.thumbnail || `https://img.youtube.com/vi/${song.id}/hqdefault.jpg`}" class="w-24 h-16 object-cover rounded-xl border border-white/10 flex-shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold truncate text-white">${song.title}</div>
+                            <div class="text-xs text-gray-400 mt-1">${song.channel || 'YouTube'}</div>
+                        </div>
+                    `;
+                    resultsContainer.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+                resultsContainer.innerHTML = '<div class="col-span-2 text-center text-red-500 py-12">Error al realizar la búsqueda.</div>';
+            }
+        }
+
+        function selectSongFromSearch(song) {
+            selectedSong = {
+                title: song.title,
+                ytId: song.id,
+                url: song.url || `https://www.youtube.com/watch?v=${song.id}`
+            };
+
+            document.querySelectorAll('.song-select-card').forEach(el => {
+                el.classList.remove('border-cyan-500', 'bg-cyan-500/10');
             });
+            event.currentTarget.classList.add('border-cyan-500', 'bg-cyan-500/10');
+
+            const btn = document.getElementById('process-btn');
+            btn.disabled = false;
+            btn.innerText = `JUGAR: ${song.title.slice(0, 30)}...`;
+
+            document.getElementById('direct-url-input').value = '';
+        }
+
+        document.getElementById('direct-url-input').addEventListener('input', (e) => {
+            const url = e.target.value.trim();
+            if (url) {
+                document.querySelectorAll('.song-select-card').forEach(el => {
+                    el.classList.remove('border-cyan-500', 'bg-cyan-500/10');
+                });
+                
+                selectedSong = {
+                    title: "Canción Personalizada",
+                    ytId: getYoutubeId(url) || "custom",
+                    url: url
+                };
+
+                const btn = document.getElementById('process-btn');
+                btn.disabled = false;
+                btn.innerText = `JUGAR CANCIÓN DE ENLACE`;
+            } else {
+                selectedSong = null;
+                document.getElementById('process-btn').disabled = true;
+                document.getElementById('process-btn').innerText = `SEPARAR VOCES Y JUGAR 🚀`;
+            }
+        });
+
+        function getYoutubeId(url) {
+            const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+            return match ? match[1] : null;
+        }
+
+        // PROCESAR E INICIAR AUDIO
+        async function processSelectedSong() {
+            if (!selectedSong) return;
+
+            uiSearch.classList.add('hidden');
+            uiLoading.classList.remove('hidden');
+            
+            updatePlayersUI();
+
+            try {
+                const response = await fetch(`/api/process_karaoke?url=${encodeURIComponent(selectedSong.url)}`);
+                if (!response.ok) throw new Error("Error del servidor procesando el audio.");
+                const data = await response.json();
+                
+                await prepareOfflineAudio(data.vocals, data.inst);
+            } catch (err) {
+                alert("Error procesando canción: " + err.message);
+                window.location.reload();
+            }
+        }
+
+        async function prepareOfflineAudio(vocalsUrl, instUrl) {
+            loadingTitle.innerText = "Cargando Pistas de Audio";
+            loadingDesc.innerText = "Descargando voz e instrumentos...";
+
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                loadingDesc.innerText = "Cargando y analizando voz...";
+                const response = await fetch(vocalsUrl);
+                if (!response.ok) throw new Error("No se pudo cargar la pista de voces.");
+                const arrayBuffer = await response.arrayBuffer();
+                
+                loadingDesc.innerText = "Decodificando ondas...";
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                rawVocalData = audioBuffer.getChannelData(0);
+                vocalSampleRate = audioBuffer.sampleRate;
+                songHopTime = pitchHopSize / vocalSampleRate;
+                songPitches = [];
+                analyzedSamples = 0;
+
+                loadingDesc.innerText = "Cargando pista instrumental...";
+                const instResponse = await fetch(instUrl);
+                if (!instResponse.ok) throw new Error("No se pudo cargar la pista instrumental.");
+                const instBlob = await instResponse.blob();
+                const instBlobUrl = URL.createObjectURL(instBlob);
+
+                instAudio = new Audio(instBlobUrl);
+                instAudio.crossOrigin = "anonymous";
+                
+                instAudio.onerror = () => {
+                    alert("Pista instrumental corrupta.");
+                    window.location.reload();
+                };
+
+                loadingDesc.innerText = "¡Todo listo! Configurando partida...";
+                
+                instAudio.oncanplaythrough = () => {
+                    instAudio.oncanplaythrough = null;
+                    uiLoading.classList.add('hidden');
+                    const dur = Math.floor(instAudio.duration) || 120;
+                    document.getElementById('setup-end').value = dur;
+                    document.getElementById('setup-end').max = dur;
+                    document.getElementById('ui-setup').classList.remove('hidden');
+                };
+                instAudio.load();
+
+            } catch (e) {
+                alert(e.message || "Error al inicializar el audio.");
+                window.location.reload();
+            }
+        }
+
+        function startConfiguredGame() {
+            playStartTime = parseFloat(document.getElementById('setup-start').value) || 0;
+            playEndTime = parseFloat(document.getElementById('setup-end').value) || instAudio.duration;
+            document.getElementById('ui-setup').classList.add('hidden');
+
+            // Resetear estadísticas
+            Object.values(players).forEach(p => {
+                p.score = 0;
+                p.combo = 1;
+                p.matchFrames = 0;
+                p.history = [];
+                p.volume = 0;
+                p.volumeActive = false;
+            });
+
+            // Truco JIT: Saltar análisis de silencios previos
+            analyzedSamples = Math.floor(playStartTime * vocalSampleRate);
+            const startIndex = Math.floor(playStartTime / songHopTime);
+            songPitches = [];
+            for (let i = 0; i < startIndex; i++) songPitches.push(-1);
+
+            updatePlayersUI();
+            startGame();
+        }
+
+        function onYouTubeIframeAPIReady() {
             bgPlayer = new YT.Player('bg-video', {
                 height: '100%',
                 width: '100%',
@@ -496,323 +682,17 @@
         function startGameMenu() {
             uiStart.classList.add('hidden');
             uiSearch.classList.remove('hidden');
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (catalogItems.length > 0) {
-                setTimeout(() => {
-                    updateCarousel();
-                    playPreview(catalogItems[selectedIndex].ytId);
-                }, 100);
-            }
-        }
-
-        function renderCatalog(items) {
-            catalogItems = items;
-            const track = document.getElementById('carousel-track');
-            track.innerHTML = '';
-            
-            items.forEach((item, idx) => {
-                const card = document.createElement('div');
-                card.className = `song-card ${idx === selectedIndex ? 'selected' : ''}`;
-                card.onclick = () => {
-                    if (selectedIndex === idx) selectCurrentSong();
-                    else setSelectedIndex(idx);
-                };
-                card.innerHTML = `<img src="https://img.youtube.com/vi/${item.ytId}/hqdefault.jpg" alt="thumb"><div class="info">${item.title}</div>`;
-                track.appendChild(card);
-            });
-            if (!uiSearch.classList.contains('hidden')) {
-                updateCarousel();
-            }
-        }
-
-        function setSelectedIndex(idx) {
-            if (!catalogItems || catalogItems.length === 0) return;
-            
-            if (idx < 0) idx = 0;
-            if (idx >= catalogItems.length) idx = catalogItems.length - 1;
-            
-            selectedIndex = idx;
-            updateCarousel();
-            
-            if (catalogItems[idx]) {
-                playPreview(catalogItems[idx].ytId);
-            }
-        }
-
-        function updateCarousel() {
-            const track = document.getElementById('carousel-track');
-            const cards = track.children;
-            for (let i = 0; i < cards.length; i++) {
-                if (i === selectedIndex) cards[i].classList.add('selected');
-                else cards[i].classList.remove('selected');
-            }
-            
-            const cardOuterWidth = CARD_WIDTH + CARD_GAP;
-            const centerOffset = (window.innerWidth / 2) - (CARD_WIDTH / 2);
-            const translateX = centerOffset - (selectedIndex * cardOuterWidth);
-            track.style.transform = `translateX(${translateX}px)`;
-        }
-
-        let previewTimeout;
-        let fadeInterval;
-        
-        function playPreview(ytId) {
-            if (!ytId || !ytPlayer || !ytPlayer.loadVideoById) return;
-            
-            clearTimeout(previewTimeout);
-            
-            previewTimeout = setTimeout(() => {
-                fadeInOutPreview(ytId);
-            }, 400); // Esperar a que el usuario termine de navegar
-        }
-
-        function fadeInOutPreview(videoId) {
-            clearInterval(fadeInterval);
-            
-            let state = ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -1;
-            let currentVol = (state === 1) ? ytPlayer.getVolume() : 0;
-            
-            if (state === 1 && currentVol > 0) {
-                // Fade out de la canción actual
-                fadeInterval = setInterval(() => {
-                    currentVol -= 5;
-                    if (currentVol <= 0) {
-                        clearInterval(fadeInterval);
-                        startNewVideoFadeIn(videoId);
-                    } else {
-                        ytPlayer.setVolume(currentVol);
-                    }
-                }, 40);
-            } else {
-                startNewVideoFadeIn(videoId);
-            }
-        }
-
-        function startNewVideoFadeIn(videoId) {
-            ytPlayer.loadVideoById({videoId: videoId, startSeconds: 30});
-            ytPlayer.playVideo();
-            ytPlayer.setVolume(0);
-            
-            let currentVol = 0;
-            const targetVol = 25;
-            
-            // Fade in de la nueva canción
-            fadeInterval = setInterval(() => {
-                currentVol += 2;
-                if (currentVol >= targetVol) {
-                    clearInterval(fadeInterval);
-                    ytPlayer.setVolume(targetVol);
-                } else {
-                    ytPlayer.setVolume(currentVol);
-                }
-            }, 60);
-        }
-
-        function selectCurrentSong() {
-            if (!catalogItems || catalogItems.length === 0) return;
-            if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
-            
-            // Animación épica antes de arrancar
-            const cards = document.getElementById('carousel-track').children;
-            const selectedCard = cards[selectedIndex];
-            
-            if (selectedCard) {
-                selectedCard.style.transform = 'scale(1.5)';
-                selectedCard.style.boxShadow = '0 0 100px #00f2fe';
-                selectedCard.style.zIndex = '50';
-            }
-            
-            setTimeout(() => {
-                if (catalogItems[selectedIndex]) {
-                    selectSong(catalogItems[selectedIndex].ytId);
-                }
-            }, 800);
-        }
-
-        function resizeCanvas() {
-            pitchCanvas.width = window.innerWidth;
-            pitchCanvas.height = window.innerHeight * 0.4;
-            graphWidth = pitchCanvas.width;
-            graphHeight = pitchCanvas.height;
-        }
-        window.addEventListener('resize', () => {
-            resizeCanvas();
-            if (!uiSearch.classList.contains('hidden')) updateCarousel();
-        });
-        resizeCanvas();
-
-        window.addEventListener('keydown', (e) => {
-            if (uiSearch.classList.contains('hidden')) return;
-            if (e.code === 'ArrowLeft') setSelectedIndex(selectedIndex - 1);
-            else if (e.code === 'ArrowRight') setSelectedIndex(selectedIndex + 1);
-            else if (e.code === 'Enter') selectCurrentSong();
-        });
-
-        async function selectSong(ytId) {
-            uiSearch.classList.add('hidden');
-            uiLoading.classList.remove('hidden');
-
-            if (!ytId) {
-                alert("Canción inválida.");
-                window.location.reload();
-                return;
-            }
-
-            try {
-                const songItem = defaultCatalog.find(s => s.ytId === ytId);
-                let vocalsUrl, instUrl;
-
-                if (songItem && songItem.vocalsId && songItem.instId) {
-                    vocalsUrl = `https://greenbase.arielcapdevila.com/file/${songItem.vocalsId}`;
-                    instUrl = `https://greenbase.arielcapdevila.com/file/${songItem.instId}`;
-                } else {
-                    vocalsUrl = `separated_tracks/mdx_extra_q/${ytId}/vocals.wav`;
-                    instUrl = `separated_tracks/mdx_extra_q/${ytId}/no_vocals.wav`;
-                }
-
-                await prepareOfflineAudio(vocalsUrl, instUrl);
-            } catch (err) {
-                alert("Error crítico. Intenta recargar la página.");
-                window.location.reload();
-            }
-        }
-
-        async function prepareOfflineAudio(vocalsUrl, instUrl) {
-            loadingTitle.innerText = "Cargando Pistas de Greenbase";
-            loadingDesc.innerText = "Descargando audio de alta calidad...";
-
-            if (window.location.protocol === 'file:') {
-                console.warn("Estás abriendo por file://. El micro podría no funcionar sin localhost o HTTPS.");
-            }
-
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                loadingDesc.innerText = "Cargando voces (vocals.wav)...";
-                const response = await fetch(vocalsUrl);
-                if (!response.ok) throw new Error("No se encontró vocals.wav. ¿Se descargó bien la canción?");
-                const arrayBuffer = await response.arrayBuffer();
-                
-                loadingDesc.innerText = "Decodificando audio (puede tardar)...";
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-                rawVocalData = audioBuffer.getChannelData(0);
-                vocalSampleRate = audioBuffer.sampleRate;
-                songHopTime = pitchHopSize / vocalSampleRate;
-                songPitches = [];
-                analyzedSamples = 0;
-
-                loadingDesc.innerText = "Cargando pista instrumental...";
-
-                // SOLUCIÓN AL BUG DE VSCODE LIVE SERVER:
-                // VSCode Live Server se congela con etiquetas <audio> grandes porque maneja mal las peticiones Range (206).
-                // Descargamos el archivo completo a memoria primero como Blob.
-                const instResponse = await fetch(instUrl);
-                if (!instResponse.ok) throw new Error("No se encontró la pista instrumental (no_vocals.wav).");
-                const instBlob = await instResponse.blob();
-                const instBlobUrl = URL.createObjectURL(instBlob);
-
-                instAudio = new Audio(instBlobUrl);
-                instAudio.crossOrigin = "anonymous";
-                
-                instAudio.onerror = () => {
-                    alert("El archivo instrumental parece estar corrupto.");
-                    window.location.reload();
-                };
-
-                micAnalyser = audioCtx.createAnalyser(); micAnalyser.fftSize = 2048;
-                
-                if (window.mobileAudioStream) {
-                    // Si hay móvil conectado, lo usamos
-                    audioCtx.createMediaStreamSource(window.mobileAudioStream).connect(micAnalyser);
-                } else {
-                    // Si no, pedimos el micro local
-                    loadingDesc.innerText = "Por favor, PERMITE EL MICRÓFONO en el navegador...";
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: 0 }, 
-                        video: false 
-                    });
-                    audioCtx.createMediaStreamSource(stream).connect(micAnalyser);
-                }
-
-                loadingDesc.innerText = "¡Listo para cantar! Preparando juego...";
-
-                instAudio.oncanplaythrough = () => {
-                    instAudio.oncanplaythrough = null;
-                    uiLoading.classList.add('hidden');
-                    const dur = Math.floor(instAudio.duration) || 120;
-                    document.getElementById('setup-end').value = dur;
-                    document.getElementById('setup-end').max = dur;
-                    document.getElementById('ui-setup').classList.remove('hidden');
-                };
-                instAudio.load();
-
-            } catch (e) { 
-                alert(e.message || "Fallo al analizar el audio o falta descargar."); 
-                window.location.reload(); 
-            }
-        }
-
-        function startConfiguredGame() {
-            playStartTime = parseFloat(document.getElementById('setup-start').value) || 0;
-            playEndTime = parseFloat(document.getElementById('setup-end').value) || instAudio.duration;
-            document.getElementById('ui-setup').classList.add('hidden');
-
-            // Resetear estadísticas
-            statsTotalPitches = 0; statsMatchedPitches = 0;
-            statsVolumeSum = 0; statsVolumeCount = 0;
-            statsTimingScore = 0; statsTimingCount = 0;
-            score = 0; combo = 1; matchFrames = 0;
-            scoreDisplay.innerText = score;
-            comboContainer.style.opacity = 0;
-
-            // Truco JIT: Saltar análisis de la voz en silencios previos al 'startTime'
-            analyzedSamples = Math.floor(playStartTime * vocalSampleRate);
-            const startIndex = Math.floor(playStartTime / songHopTime);
-            songPitches = [];
-            for (let i = 0; i < startIndex; i++) songPitches.push(-1);
-
-            startGame();
-        }
-
-        // NUEVA FUNCIÓN: Analiza el audio sobre la marcha mientras juegas
-        function analyzeFuture() {
-            if (!rawVocalData || !isPlaying) return;
-            const now = instAudio.currentTime;
-
-            // Calculamos hasta 4 segundos en el futuro (para llenar la pantalla por la derecha)
-            const targetTime = now + 4.0;
-            const targetSample = Math.floor(targetTime * vocalSampleRate);
-            const maxSample = Math.min(targetSample, rawVocalData.length - pitchHopSize);
-
-            let startIndex = songPitches.length;
-
-            // Bucle súper rápido que solo calcula los fotogramas necesarios
-            while (analyzedSamples < maxSample) {
-                const chunk = rawVocalData.subarray(analyzedSamples, analyzedSamples + pitchHopSize);
-                let hz = autoCorrelate(chunk, vocalSampleRate);
-                songPitches.push(hz);
-                analyzedSamples += pitchHopSize;
-            }
-
-            // Suavizado al vuelo solo para las nuevas notas calculadas
-            for (let i = Math.max(2, startIndex); i < songPitches.length - 2; i++) {
-                if (songPitches[i] > 0) {
-                    let n = [songPitches[i - 2], songPitches[i - 1], songPitches[i], songPitches[i + 1], songPitches[i + 2]];
-                    n.sort((a, b) => a - b);
-                    songPitches[i] = n[2];
-                }
-            }
         }
 
         function startGame() {
             uiGame.classList.remove('hidden');
             
-            const ytId = catalogItems[selectedIndex].ytId;
-            bgPlayer.loadVideoById({videoId: ytId, startSeconds: playStartTime});
-            bgPlayer.mute();
-            bgPlayer.playVideo();
-            document.getElementById('bg-video').style.filter = "brightness(0.2) blur(4px) saturate(0.6)";
+            if (selectedSong && selectedSong.ytId && bgPlayer && bgPlayer.loadVideoById) {
+                bgPlayer.loadVideoById({videoId: selectedSong.ytId, startSeconds: playStartTime});
+                bgPlayer.mute();
+                bgPlayer.playVideo();
+            }
+            document.getElementById('bg-video').style.filter = "brightness(0.18) blur(3px) saturate(0.6)";
 
             audioCtx.resume();
             instAudio.currentTime = playStartTime;
@@ -824,29 +704,57 @@
         function endGame() {
             isPlaying = false;
             if (bgPlayer && bgPlayer.pauseVideo) bgPlayer.pauseVideo();
-            instAudio.pause(); audioCtx.suspend();
+            instAudio.pause();
+            audioCtx.suspend();
 
             uiGame.classList.add('hidden');
             document.getElementById('ui-summary').classList.remove('hidden');
-            document.getElementById('summary-score').innerText = score;
 
-            // Calcular Métricas
-            let pitchPct = statsTotalPitches > 0 ? Math.round((statsMatchedPitches / statsTotalPitches) * 100) : 0;
-            document.getElementById('summary-pitch').innerText = pitchPct + '%';
+            const leaderboardList = document.getElementById('leaderboard-list');
+            leaderboardList.innerHTML = '';
+            
+            const sortedPlayers = Object.values(players).sort((a, b) => b.score - a.score);
+            
+            if (sortedPlayers.length === 0) {
+                leaderboardList.innerHTML = '<div class="text-center text-gray-500">Ningún jugador cantó en la partida.</div>';
+                return;
+            }
 
-            let timePct = statsTimingCount > 0 ? Math.round(Math.max(0, (statsTimingScore / statsTimingCount)) * 100) : 0;
-            if (timePct > 100) timePct = 100;
-            document.getElementById('summary-time').innerText = timePct + '%';
+            sortedPlayers.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between bg-white/5 border border-white/10 p-5 rounded-2xl transition-all";
+                if (idx === 0) {
+                    row.className += " border-yellow-500/40 bg-yellow-500/5 shadow-[0_0_25px_rgba(234,179,8,0.1)]";
+                }
+                
+                const medal = idx === 0 ? "🏆 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : `#${idx + 1} `;
+                row.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <span class="text-2xl font-black">${medal}</span>
+                        <span class="text-xl font-bold" style="color: ${p.color}">${p.name}</span>
+                    </div>
+                    <div class="text-2xl font-black font-mono text-white">${Math.round(p.score).toLocaleString()} pts</div>
+                `;
+                leaderboardList.appendChild(row);
+            });
+        }
 
-            let avgVol = statsVolumeCount > 0 ? (statsVolumeSum / statsVolumeCount) : 0;
-            let volPct = Math.min(100, Math.round(avgVol * 1000)); // Escala de volumen para interfaz
-            document.getElementById('summary-vol').innerText = volPct + '%';
+        function hzToY(hz) {
+            if (hz <= 0) return null;
+            const minLog = Math.log2(80), maxLog = Math.log2(800);
+            let logHz = Math.log2(hz);
+            if (logHz < minLog) logHz = minLog; if (logHz > maxLog) logHz = maxLog;
+            
+            // Ubicar notas en la parte inferior del canvas (entre 45% y 92% de la altura)
+            const topBound = graphHeight * 0.45;
+            const bottomBound = graphHeight * 0.92;
+            return bottomBound - (((logHz - minLog) / (maxLog - minLog)) * (bottomBound - topBound));
         }
 
         function autoCorrelate(buf, sampleRate) {
             let SIZE = buf.length; let rms = 0;
             for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
-            rms = Math.sqrt(rms / SIZE); if (rms < 0.015) return -1;
+            rms = Math.sqrt(rms / SIZE); if (rms < 0.012) return -1;
             let r1 = 0, r2 = SIZE - 1, thres = 0.2;
             for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
             for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
@@ -859,12 +767,29 @@
             return sampleRate / maxpos;
         }
 
-        function hzToY(hz) {
-            if (hz <= 0) return null;
-            const minLog = Math.log2(80), maxLog = Math.log2(800);
-            let logHz = Math.log2(hz);
-            if (logHz < minLog) logHz = minLog; if (logHz > maxLog) logHz = maxLog;
-            return graphHeight - (((logHz - minLog) / (maxLog - minLog)) * graphHeight);
+        function analyzeFuture() {
+            if (!rawVocalData || !isPlaying) return;
+            const now = instAudio.currentTime;
+
+            const targetTime = now + 4.0;
+            const targetSample = Math.floor(targetTime * vocalSampleRate);
+            const maxSample = Math.min(targetSample, rawVocalData.length - pitchHopSize);
+
+            while (analyzedSamples < maxSample) {
+                const chunk = rawVocalData.subarray(analyzedSamples, analyzedSamples + pitchHopSize);
+                let hz = autoCorrelate(chunk, vocalSampleRate);
+                songPitches.push(hz);
+                analyzedSamples += pitchHopSize;
+            }
+
+            // Suavizar tonos
+            for (let i = Math.max(2, songPitches.length - 20); i < songPitches.length - 2; i++) {
+                if (songPitches[i] > 0) {
+                    let n = [songPitches[i - 2], songPitches[i - 1], songPitches[i], songPitches[i + 1], songPitches[i + 2]];
+                    n.sort((a, b) => a - b);
+                    songPitches[i] = n[2];
+                }
+            }
         }
 
         function gameLoop() {
@@ -876,7 +801,7 @@
                 return;
             }
 
-            // --- ACTUALIZAR BARRA DE PROGRESO ---
+            // Actualizar barra de progreso
             const progressPct = Math.min(100, Math.max(0, ((now - playStartTime) / (playEndTime - playStartTime)) * 100));
             document.getElementById('progress-bar').style.width = progressPct + '%';
 
@@ -885,185 +810,301 @@
             const secs = Math.floor(timeLeft % 60).toString().padStart(2, '0');
             document.getElementById('time-remaining').innerText = `- ${mins}:${secs}`;
 
-            // 1. Escanear el futuro en tiempo real (Lookahead Buffer)
+            // Calcular y procesar tonos
             analyzeFuture();
 
-            const micBuf = new Float32Array(micAnalyser.fftSize);
-            micAnalyser.getFloatTimeDomainData(micBuf);
-
-            // Recolectar estadísticas de Volumen
-            let rms = 0;
-            for (let i = 0; i < micBuf.length; i++) rms += micBuf[i] * micBuf[i];
-            rms = Math.sqrt(rms / micBuf.length);
-            if (rms > 0.01) { statsVolumeSum += rms; statsVolumeCount++; }
-
-            const rawUserHz = autoCorrelate(micBuf, audioCtx.sampleRate);
-
-            // --- 🎤 COMPENSACIÓN DE LATENCIA ---
-            // Buscamos qué nota debía cantar el usuario hace 150ms para perdonarle el retraso humano/hardware
-            const targetTimeForMic = Math.max(0, now - LATENCY_OFFSET);
-            const targetHz = songPitches[Math.floor(targetTimeForMic / songHopTime)];
-
-            let userHz = rawUserHz;
-
-            // --- 🎤 MAGIA 1: TOLERANCIA DE OCTAVAS ---
-            // Solo plegado de octavas sin trucos falsos
-            if (userHz > 0 && targetHz > 0) {
-                while (userHz > targetHz * 1.35) userHz /= 2;
-                while (userHz < targetHz * 0.65) userHz *= 2;
-            }
-
-            let userY = hzToY(userHz);
+            const targetIdx = Math.floor(now / songHopTime);
+            const targetHz = targetIdx < songPitches.length ? songPitches[targetIdx] : -1;
             const targetY = hzToY(targetHz);
-            let isMatching = false;
-            let currentRawDistance = 0;
+            const hasVocals = targetHz > 0 && targetY !== null;
 
-            // --- ✨ DETECCIÓN REAL Y ESTRICTA ---
-            if (userY !== null) {
-                if (typeof window.lastUserY === 'undefined') window.lastUserY = userY;
+            const playX = graphWidth / 2;
+            const numPlayers = Object.keys(players).length;
 
-                // Menos suavizado para que sea más reactivo a la voz real
-                userY = window.lastUserY + (userY - window.lastUserY) * 0.5;
-                window.lastUserY = userY;
+            // Procesar volumen y líneas de los jugadores
+            for (let name in players) {
+                const p = players[name];
+                const userVol = p.volume || 0;
+                const isSinging = userVol > 0.015;
 
-                // Tolerancia más generosa (35px en lugar de 18) para compensar imprecisiones
-                let tolerance = 35;
+                if (isSinging && hasVocals) {
+                    // Desplazamiento sutil por jugador para evitar solapamiento
+                    const offset = (p.colorIdxOffset - (numPlayers - 1) / 2) * 12;
+                    const userY = targetY + offset;
 
-                if (targetY !== null) {
-                    currentRawDistance = Math.abs(targetY - userY);
+                    p.history.push({ time: now, y: userY, active: true });
+                    p.volumeActive = true;
 
-                    // Si estamos cerca de la nota, puntuamos
-                    if (currentRawDistance < tolerance) {
-                        isMatching = true;
+                    // Puntuación proporcional al volumen
+                    const basePoints = Math.floor(userVol * 180);
+                    const pointsAdded = basePoints * p.combo;
+                    p.score += pointsAdded;
+
+                    // Partículas
+                    if (Math.random() > 0.4) {
+                        particles.push({
+                            x: playX,
+                            y: userY,
+                            vx: (Math.random() - 0.5) * 5,
+                            vy: (Math.random() - 1) * 5,
+                            life: 1.0,
+                            size: Math.random() * 5 + 2,
+                            color: p.color
+                        });
+                    }
+
+                    // Flotantes
+                    if (Math.random() > 0.88) {
+                        floatingTexts.push({
+                            x: playX + (Math.random() - 0.5) * 60,
+                            y: userY - 20,
+                            text: `${p.name}: +${pointsAdded}`,
+                            life: 0.9,
+                            color: p.color,
+                            isWord: false
+                        });
+                    }
+
+                    // Combos
+                    p.matchFrames++;
+                    if (p.matchFrames > 25 && p.combo < 2) p.combo = 2;
+                    if (p.matchFrames > 75 && p.combo < 3) p.combo = 3;
+                    if (p.matchFrames > 150) p.combo = 4;
+
+                } else {
+                    // No canta o no hay voz original
+                    p.history.push({ time: now, y: null, active: false });
+                    p.volumeActive = false;
+
+                    if (!hasVocals) {
+                        // Penalizar si gritan en el silencio
+                        if (userVol > 0.025) {
+                            p.matchFrames = 0;
+                            p.combo = 1;
+                        }
+                    } else {
+                        p.matchFrames = 0;
+                        p.combo = 1;
                     }
                 }
 
-                userHistory.push({ time: now, y: userY });
-            } else {
-                window.lastUserY = null;
-            }
+                // Filtrar historial
+                p.history = p.history.filter(h => now - h.time < TIME_WINDOW / 2);
 
-            userHistory = userHistory.filter(p => now - p.time < TIME_WINDOW / 2);
+                // UI
+                const scoreEl = document.getElementById(`score-${p.name}`);
+                if (scoreEl) scoreEl.innerText = Math.round(p.score).toLocaleString();
 
-            if (targetY !== null) {
-                statsTotalPitches++;
-                statsTimingCount++;
-                if (userY !== null) statsTimingScore++;
-            }
-
-            if (isMatching) {
-                matchFrames++;
-                statsMatchedPitches++;
-                if (matchFrames % 10 === 0) {
-                    // --- 🌟 PUNTUACIÓN DINÁMICA POR PROXIMIDAD ---
-                    // En lugar de dar 10 puntos fijos, damos entre 5 y 15 según cuán cerca estabas del centro
-                    let closeness = Math.max(0, 1 - (currentRawDistance / 45)); // 1.0 es perfecto, 0.0 está en el límite
-                    let basePoints = Math.floor(5 + (closeness * 10));
-                    let pointsAdded = basePoints * combo;
-
-                    score += pointsAdded;
-                    scoreDisplay.innerText = score;
-                    floatingTexts.push({ x: graphWidth / 2 + 30, y: userY - 20, text: `+${pointsAdded}`, life: 1.0, color: combo >= 4 ? '#0ff' : '#f0f', isWord: false });
-
-                    if (matchFrames > 40 && combo < 4) { combo = 2; comboContainer.style.opacity = 1; }
-                    if (matchFrames > 120 && combo < 4) combo = 3;
-                    if (matchFrames > 200) combo = 4;
-                    comboDisplay.innerText = `x${combo}`;
+                const comboEl = document.getElementById(`combo-${p.name}`);
+                if (comboEl) {
+                    comboEl.innerText = `x${p.combo}`;
+                    if (p.combo >= 4) {
+                        comboEl.className = "text-[10px] font-black uppercase tracking-widest text-cyan-300 px-2 py-0.5 rounded bg-cyan-500/30 animate-pulse";
+                    } else if (p.combo > 1) {
+                        comboEl.className = "text-[10px] font-black uppercase tracking-widest text-pink-300 px-2 py-0.5 rounded bg-pink-500/30";
+                    } else {
+                        comboEl.className = "text-[10px] font-black uppercase tracking-widest text-gray-400 px-2 py-0.5 rounded bg-white/10";
+                    }
                 }
 
-                // --- 🌟 PALABRAS DE ÁNIMO ALEATORIAS ---
-                if (matchFrames > 30 && matchFrames % 40 === 0 && (now - lastFeedbackTime > 1.5)) {
-                    const word = FEEDBACK_WORDS[Math.floor(Math.random() * FEEDBACK_WORDS.length)];
-                    floatingTexts.push({ x: graphWidth / 2, y: userY - 50, text: word, life: 1.5, color: '#fff', isWord: true });
-                    lastFeedbackTime = now;
+                const volbarEl = document.getElementById(`volbar-${p.name}`);
+                if (volbarEl) {
+                    const barPct = Math.min(100, Math.round(userVol * 450));
+                    volbarEl.style.width = barPct + '%';
                 }
-
-                if (Math.random() > 0.4) particles.push({ x: graphWidth / 2, y: userY, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 1) * 6, life: 1.0, size: Math.random() * 5 + 2 });
-            } else {
-                matchFrames = 0;
-                combo = 1;
-                comboContainer.style.opacity = 0;
             }
 
-            drawCanvas(now, userY, isMatching, targetY);
+            // Enviar puntuaciones actualizadas de vuelta a los móviles (PeerJS data conn)
+            frameCount++;
+            if (frameCount % 15 === 0) {
+                for (let name in players) {
+                    const p = players[name];
+                    if (p.conn && p.conn.open) {
+                        try {
+                            p.conn.send({
+                                type: 'score_update',
+                                score: p.score
+                            });
+                        } catch (e) {
+                            console.error("Error enviando score a Peer:", e);
+                        }
+                    }
+                }
+            }
+
+            drawCanvas(now, targetY, hasVocals);
+            
             requestAnimationFrame(gameLoop);
         }
 
-        function drawCanvas(now, userY, isMatching, targetY) {
+        function drawCanvas(now, targetY, hasVocals) {
             ctx.clearRect(0, 0, graphWidth, graphHeight);
             const pps = graphWidth / TIME_WINDOW, playX = graphWidth / 2;
 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; ctx.lineWidth = 1;
-            for (let i = 0; i < 5; i++) { let h = (graphHeight / 4) * i; ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(graphWidth, h); ctx.stroke(); }
+            // Dibujar rejilla
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 5; i++) {
+                let h = (graphHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, h);
+                ctx.lineTo(graphWidth, h);
+                ctx.stroke();
+            }
 
+            // Dibujar notas de la canción (abajo en el gráfico)
             const sIdx = Math.max(0, Math.floor((now - TIME_WINDOW / 2) / songHopTime));
             const eIdx = Math.min(songPitches.length, Math.floor((now + TIME_WINDOW / 2) / songHopTime));
 
-            ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 14;
-            let isD = false; ctx.beginPath();
-
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 12;
+            
+            let isD = false;
+            ctx.beginPath();
             for (let i = sIdx; i < eIdx; i++) {
-                const x = playX + ((i * songHopTime - now) * pps), y = hzToY(songPitches[i]);
+                const x = playX + ((i * songHopTime - now) * pps);
+                const y = hzToY(songPitches[i]);
                 if (y !== null) {
-                    if (!isD) { ctx.moveTo(x, y); isD = true; } else ctx.lineTo(x, y);
+                    if (!isD) {
+                        ctx.moveTo(x, y);
+                        isD = true;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
                 } else if (isD) {
-                    ctx.strokeStyle = 'rgba(0, 242, 254, 0.6)'; ctx.shadowBlur = 15; ctx.shadowColor = '#00f2fe'; ctx.stroke();
-                    ctx.beginPath(); isD = false;
+                    ctx.strokeStyle = 'rgba(0, 242, 254, 0.55)';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#00f2fe';
+                    ctx.stroke();
+                    ctx.beginPath();
+                    isD = false;
                 }
             }
-            if (isD) { ctx.strokeStyle = 'rgba(0, 242, 254, 0.6)'; ctx.stroke(); }
-
-            ctx.beginPath(); ctx.strokeStyle = '#ff0844'; ctx.lineWidth = 6; ctx.shadowBlur = 10; ctx.shadowColor = '#ff0844';
-            let uD = false;
-            for (let p of userHistory) {
-                const x = playX + ((p.time - now) * pps);
-                if (!uD) { ctx.moveTo(x, p.y); uD = true; } else ctx.lineTo(x, p.y);
+            if (isD) {
+                ctx.strokeStyle = 'rgba(0, 242, 254, 0.55)';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00f2fe';
+                ctx.stroke();
             }
+            ctx.shadowBlur = 0; // reset blur
+
+            // Dibujar líneas de los jugadores (solo si están activos cantando)
+            ctx.lineWidth = 4;
+            const numPlayers = Object.keys(players).length;
+
+            for (let name in players) {
+                const p = players[name];
+                let uD = false;
+                ctx.beginPath();
+                ctx.strokeStyle = p.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = p.color;
+
+                for (let h of p.history) {
+                    if (h.active && h.y !== null) {
+                        const x = playX + ((h.time - now) * pps);
+                        if (!uD) {
+                            ctx.moveTo(x, h.y);
+                            uD = true;
+                        } else {
+                            ctx.lineTo(x, h.y);
+                        }
+                    } else {
+                        if (uD) {
+                            ctx.stroke();
+                            ctx.beginPath();
+                            uD = false;
+                        }
+                    }
+                }
+                if (uD) ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+
+            // Línea central
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
+            ctx.moveTo(playX, 0);
+            ctx.lineTo(playX, graphHeight);
             ctx.stroke();
+            ctx.setLineDash([]);
 
-            ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]);
-            ctx.moveTo(playX, 0); ctx.lineTo(playX, graphHeight); ctx.stroke(); ctx.setLineDash([]);
-
+            // Partículas
             for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                if (p.life <= 0) { particles.splice(i, 1); continue; }
-                ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.04;
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
             }
 
-            if (userY !== null) {
-                ctx.save(); ctx.translate(playX, userY);
-                if (isMatching) {
-                    ctx.translate(0, targetY - userY); ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 30; ctx.shadowColor = '#fff'; ctx.scale(1.2, 1.2);
-                } else { ctx.fillStyle = '#ff0844'; ctx.shadowBlur = 15; ctx.shadowColor = '#ff0844'; }
-                ctx.beginPath(); ctx.moveTo(-15, -12); ctx.lineTo(10, 0); ctx.lineTo(-15, 12); ctx.closePath(); ctx.fill(); ctx.restore();
+            // Indicadores redondos en el playhead (solo si cantan activamente)
+            for (let name in players) {
+                const p = players[name];
+                if (p.volumeActive && hasVocals) {
+                    const offset = (p.colorIdxOffset - (numPlayers - 1) / 2) * 12;
+                    const userY = targetY + offset;
+
+                    ctx.save();
+                    ctx.translate(playX, userY);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = p.color;
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = p.color;
+                    
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                }
             }
 
-            ctx.font = "bold 20px Outfit";
+            // Textos flotantes
+            ctx.font = "bold 16px Outfit";
             for (let i = floatingTexts.length - 1; i >= 0; i--) {
                 let ft = floatingTexts[i];
-                ft.y -= ft.isWord ? 1.5 : 1;
-                ft.life -= 0.02;
-                if (ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
-
-                ctx.fillStyle = ft.color;
-                ctx.globalAlpha = ft.life;
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = ft.color;
-
-                if (ft.isWord) {
-                    ctx.font = "black 32px Outfit";
-                    ctx.textAlign = "center";
-                    // Efecto de neón extra para las palabras
-                    ctx.strokeText(ft.text, ft.x, ft.y);
-                } else {
-                    ctx.font = "bold 20px Outfit";
-                    ctx.textAlign = "left";
+                ft.y -= 1.2;
+                ft.life -= 0.025;
+                if (ft.life <= 0) {
+                    floatingTexts.splice(i, 1);
+                    continue;
                 }
-
+                ctx.save();
+                ctx.globalAlpha = ft.life;
+                ctx.fillStyle = ft.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = ft.color;
+                ctx.textAlign = "center";
                 ctx.fillText(ft.text, ft.x, ft.y);
-                ctx.globalAlpha = 1.0;
+                ctx.restore();
             }
         }
+
+        function resizeCanvas() {
+            pitchCanvas.width = window.innerWidth;
+            pitchCanvas.height = window.innerHeight * 0.4;
+            graphWidth = pitchCanvas.width;
+            graphHeight = pitchCanvas.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
     </script>
 </body>
 

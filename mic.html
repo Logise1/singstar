@@ -3,89 +3,300 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Micrófono SingStar</title>
+    <title>Micrófono SingStar AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Outfit', sans-serif; background-color: #030305; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        .glass { background: rgba(20, 20, 30, 0.45); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 32px; text-align: center; }
-        .btn { background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); color: white; font-weight: 900; font-size: 1.5rem; padding: 16px 32px; border-radius: 9999px; border: none; outline: none; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4); text-transform: uppercase; letter-spacing: 2px; }
-        .btn:active { transform: scale(0.95); }
-        .status { margin-top: 16px; font-size: 1rem; color: #aaa; }
-        .pulse { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(0, 242, 254, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 242, 254, 0); } }
-        .connected { background: linear-gradient(135deg, #00b09b, #96c93d) !important; box-shadow: 0 4px 15px rgba(150, 201, 61, 0.4) !important; }
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: #030305; 
+            color: white; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        .glass { 
+            background: rgba(20, 20, 30, 0.45); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 24px; 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        .text-gradient { 
+            background: linear-gradient(135deg, #00f2fe, #4facfe); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+        }
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s;
+        }
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(0, 242, 254, 0.5);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.15);
+            outline: none;
+        }
+        .glass-button {
+            background: linear-gradient(135deg, rgba(0, 242, 254, 0.25) 0%, rgba(79, 172, 254, 0.25) 100%);
+            border: 1px solid rgba(0, 242, 254, 0.4);
+            transition: all 0.3s;
+        }
+        .glass-button:hover:not(:disabled) {
+            background: linear-gradient(135deg, rgba(0, 242, 254, 0.4) 0%, rgba(79, 172, 254, 0.4) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+        }
+        .glass-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .pulse-circle {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 242, 254, 0.4) 0%, rgba(79, 172, 254, 0) 70%);
+            border: 2px solid rgba(0, 242, 254, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.2);
+        }
     </style>
 </head>
 <body>
-    <div class="glass w-11/12 max-w-sm">
-        <h1 class="text-3xl font-black mb-2 uppercase tracking-tight" style="background: linear-gradient(135deg, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🎤 SingStar Mic</h1>
-        <p class="text-gray-400 mb-8 text-sm">Usa tu móvil como micrófono sin latencia.</p>
+
+    <!-- Pantalla 1: Registro de Nombre -->
+    <div id="screen-register" class="glass w-11/12 max-w-sm p-8 text-center transition-opacity duration-300">
+        <h1 class="text-4xl font-black mb-2 uppercase tracking-tight text-gradient">🎤 SingStar Mic</h1>
+        <p class="text-gray-400 mb-8 text-sm font-semibold">Usa tu móvil como micrófono (HTTPS)</p>
         
-        <button id="connectBtn" class="btn w-full">Conectar</button>
-        <div id="status" class="status">Esperando conexión...</div>
+        <div class="flex flex-col gap-4 text-left mb-6">
+            <label class="text-xs font-bold uppercase tracking-widest text-gray-400 ml-1">Tu Nombre</label>
+            <input type="text" id="usernameInput" maxlength="15" placeholder="Escribe tu nombre..." 
+                   class="glass-input px-5 py-4 rounded-xl text-lg font-bold">
+        </div>
+
+        <button id="joinBtn" class="glass-button w-full py-4 text-lg font-bold rounded-xl text-white uppercase tracking-wider">
+            Entrar a Cantar
+        </button>
+        <div id="registerStatus" class="mt-4 text-sm text-red-500 font-semibold hidden"></div>
     </div>
 
-    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
-    <script>
-        const connectBtn = document.getElementById('connectBtn');
-        const statusEl = document.getElementById('status');
-        let peer;
-        let localStream;
+    <!-- Pantalla 2: Juego / Transmisión de Audio -->
+    <div id="screen-play" class="glass w-11/12 max-w-sm p-8 text-center hidden transition-opacity duration-300">
+        <h1 class="text-2xl font-black mb-1 uppercase tracking-tight text-gradient" id="playerTitle">Jugador</h1>
+        <p class="text-gray-400 mb-6 text-xs font-bold tracking-widest uppercase">Micrófono Activo</p>
         
+        <!-- Círculo Visualizador que pulsa con el volumen -->
+        <div class="flex justify-center my-8">
+            <div id="visualizer" class="pulse-circle">
+                <span class="text-5xl">🎙️</span>
+            </div>
+        </div>
+
+        <div class="bg-black/30 rounded-2xl p-4 mb-6 border border-white/5">
+            <span class="text-[10px] uppercase font-black text-gray-400 tracking-widest block mb-1">Puntos en Directo</span>
+            <div id="liveScore" class="text-4xl font-black text-white">0</div>
+        </div>
+
+        <div id="playStatus" class="text-sm font-semibold text-green-400">Conectado P2P y transmitiendo...</div>
+        <button id="leaveBtn" class="mt-6 text-xs text-gray-500 hover:text-white uppercase font-bold tracking-widest transition-colors">
+            Salir de la partida
+        </button>
+    </div>
+
+    <script>
+        const screenRegister = document.getElementById('screen-register');
+        const screenPlay = document.getElementById('screen-play');
+        const usernameInput = document.getElementById('usernameInput');
+        const joinBtn = document.getElementById('joinBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const playerTitle = document.getElementById('playerTitle');
+        const liveScore = document.getElementById('liveScore');
+        const registerStatus = document.getElementById('registerStatus');
+        const playStatus = document.getElementById('playStatus');
+        const visualizer = document.getElementById('visualizer');
+
+        let peer = null;
+        let conn = null;
+        let audioContext;
+        let analyser;
+        let microphoneStream;
+        let volumeInterval;
+        let localVolume = 0;
+        let playerName = '';
+
+        // Leer parámetro target desde la URL
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('target');
 
         if (!targetId) {
-            statusEl.innerText = "Error: Código de PC no encontrado en el enlace.";
-            statusEl.style.color = "#ff0844";
-            connectBtn.style.display = 'none';
+            showError("Código de partida (target) no encontrado. Escanea el código QR desde el juego.");
+            joinBtn.disabled = true;
         }
 
-        connectBtn.addEventListener('click', async () => {
-            if (localStream) return;
+        function showError(msg) {
+            registerStatus.innerText = msg;
+            registerStatus.classList.remove('hidden');
+        }
 
+        joinBtn.addEventListener('click', async () => {
+            playerName = usernameInput.value.trim();
+            if (!playerName) {
+                showError("Por favor, introduce tu nombre.");
+                return;
+            }
+
+            // Pedir permisos de micrófono
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false, latency: 0 }, 
-                    video: false 
-                });
-                
-                statusEl.innerText = "Conectando con el PC por PeerJS...";
-                
-                peer = new Peer();
-                
-                peer.on('open', (id) => {
-                    const call = peer.call(targetId, localStream);
-                    
-                    call.on('stream', () => {
-                        // El PC ha respondido
-                    });
-                    
-                    statusEl.innerText = "¡Conectado! Ya puedes cantar.";
-                    statusEl.style.color = "#96c93d";
-                    connectBtn.innerText = "🎤 EN VIVO";
-                    connectBtn.classList.add('pulse', 'connected');
-                });
-
-                peer.on('error', (err) => {
-                    console.error("PeerJS Error (Mobile):", err.type);
-                    if (err.type === 'peer-unavailable') {
-                        statusEl.innerText = "Error: El PC no está disponible. Escanea de nuevo el código QR.";
-                    } else if (err.type === 'network') {
-                        statusEl.innerText = "Error de red. Verifica tu conexión.";
-                    } else {
-                        statusEl.innerText = "Error: " + err.type;
-                    }
-                    statusEl.style.color = "#ff0844";
-                    connectBtn.classList.remove('pulse', 'connected');
-                    connectBtn.innerText = "Reconectar";
+                microphoneStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        latency: 0
+                    },
+                    video: false
                 });
             } catch (err) {
-                statusEl.innerText = "Error de micrófono: " + err.message;
-                statusEl.style.color = "#ff0844";
+                showError("Error de micrófono: " + err.message + ". Asegúrate de dar permisos en HTTPS.");
+                return;
             }
+
+            // Configurar AudioContext local
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(microphoneStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                source.connect(analyser);
+            } catch (err) {
+                showError("Error al iniciar el analizador de audio: " + err.message);
+                return;
+            }
+
+            registerStatus.classList.add('hidden');
+            joinBtn.disabled = true;
+            joinBtn.innerText = "Conectando P2P...";
+
+            // Iniciar PeerJS para conectar con el PC
+            peer = new Peer();
+
+            peer.on('open', (id) => {
+                console.log('Mi Peer ID es:', id);
+                
+                // Conectar al PC
+                conn = peer.connect(targetId);
+
+                conn.on('open', () => {
+                    console.log('Conexión de datos abierta con el PC.');
+                    
+                    // Enviar datos de registro
+                    conn.send({
+                        type: 'join',
+                        name: playerName
+                    });
+
+                    // Cambiar a la pantalla de juego
+                    screenRegister.classList.add('hidden');
+                    screenPlay.classList.remove('hidden');
+                    playerTitle.innerText = playerName;
+
+                    // Comenzar a enviar volumen por WebRTC
+                    startSendingVolume();
+                });
+
+                conn.on('data', (data) => {
+                    if (data.type === 'score_update') {
+                        liveScore.innerText = Math.round(data.score).toLocaleString();
+                    }
+                });
+
+                conn.on('close', () => {
+                    cleanup();
+                    screenPlay.classList.add('hidden');
+                    screenRegister.classList.remove('hidden');
+                    joinBtn.disabled = false;
+                    joinBtn.innerText = "Entrar a Cantar";
+                    showError("Conexión perdida con la partida.");
+                });
+
+                conn.on('error', (err) => {
+                    console.error("Con error:", err);
+                    showError("Error en canal de datos P2P.");
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error("PeerJS Error (Mic):", err);
+                joinBtn.disabled = false;
+                joinBtn.innerText = "Entrar a Cantar";
+                if (err.type === 'peer-unavailable') {
+                    showError("No se pudo encontrar la partida. Verifica que el juego esté abierto en el PC.");
+                } else {
+                    showError("Error de conexión PeerJS: " + err.type);
+                }
+            });
         });
+
+        leaveBtn.addEventListener('click', () => {
+            if (conn) conn.close();
+            if (peer) peer.destroy();
+        });
+
+        function startSendingVolume() {
+            const bufferLength = analyser.fftSize;
+            const dataArray = new Float32Array(bufferLength);
+
+            volumeInterval = setInterval(() => {
+                if (!analyser || !conn || conn.open === false) return;
+
+                analyser.getFloatTimeDomainData(dataArray);
+
+                // Calcular volumen RMS
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i] * dataArray[i];
+                }
+                const rms = Math.sqrt(sum / bufferLength);
+                
+                // Suavizar
+                localVolume = localVolume * 0.45 + rms * 0.55;
+
+                // Enviar volumen al PC por Data Channel
+                conn.send({
+                    type: 'volume',
+                    name: playerName,
+                    volume: parseFloat(localVolume.toFixed(4))
+                });
+
+                // Pulsación visual
+                const scale = 1 + Math.min(0.8, localVolume * 4);
+                const glow = Math.min(60, localVolume * 250);
+                visualizer.style.transform = `scale(${scale})`;
+                visualizer.style.boxShadow = `0 0 ${30 + glow}px rgba(0, 242, 254, ${0.2 + localVolume})`;
+            }, 50);
+        }
+
+        function cleanup() {
+            clearInterval(volumeInterval);
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            localVolume = 0;
+        }
     </script>
 </body>
 </html>
