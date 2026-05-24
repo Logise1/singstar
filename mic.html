@@ -134,6 +134,9 @@
         let volumeInterval;
         let localVolume = 0;
         let playerName = '';
+        
+        // Auto-calibración de volumen
+        let maxVolumeSeen = 0.04;
 
         // Leer parámetro target desde la URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -172,9 +175,12 @@
                 return;
             }
 
-            // Configurar AudioContext local
+            // Configurar AudioContext local y forzar inicio
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
                 const source = audioContext.createMediaStreamSource(microphoneStream);
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 512;
@@ -269,21 +275,34 @@
                 }
                 const rms = Math.sqrt(sum / bufferLength);
                 
-                // Suavizar
-                localVolume = localVolume * 0.45 + rms * 0.55;
+                // Actualizar calibración de volumen máximo observado
+                if (rms > maxVolumeSeen) {
+                    maxVolumeSeen = rms;
+                } else {
+                    // Decaer lentamente para recalibrar en ambientes más silenciosos
+                    maxVolumeSeen = maxVolumeSeen * 0.9995 + rms * 0.0005;
+                    if (maxVolumeSeen < 0.04) maxVolumeSeen = 0.04;
+                }
 
-                // Enviar volumen al PC por Data Channel
+                // Normalizar volumen entre 0.0 y 1.0 basándose en calibración
+                const normalizedVolume = rms / maxVolumeSeen;
+                
+                // Suavizar
+                localVolume = localVolume * 0.4 + normalizedVolume * 0.6;
+                if (localVolume < 0.001) localVolume = 0;
+
+                // Enviar volumen normalizado al PC por Data Channel
                 conn.send({
                     type: 'volume',
                     name: playerName,
                     volume: parseFloat(localVolume.toFixed(4))
                 });
 
-                // Pulsación visual
-                const scale = 1 + Math.min(0.8, localVolume * 4);
-                const glow = Math.min(60, localVolume * 250);
+                // Pulsación visual reactiva
+                const scale = 1 + Math.min(0.8, localVolume * 0.8);
+                const glow = Math.min(60, localVolume * 60);
                 visualizer.style.transform = `scale(${scale})`;
-                visualizer.style.boxShadow = `0 0 ${30 + glow}px rgba(0, 242, 254, ${0.2 + localVolume})`;
+                visualizer.style.boxShadow = `0 0 ${30 + glow}px rgba(0, 242, 254, ${0.2 + localVolume * 0.5})`;
             }, 50);
         }
 
@@ -296,6 +315,7 @@
                 audioContext.close();
             }
             localVolume = 0;
+            maxVolumeSeen = 0.04;
         }
     </script>
 </body>

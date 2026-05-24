@@ -498,14 +498,15 @@
             try {
                 const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
                 const data = await response.json();
+                const songList = data.results || [];
                 
                 resultsContainer.innerHTML = '';
-                if (!data || data.length === 0) {
+                if (songList.length === 0) {
                     resultsContainer.innerHTML = '<div class="col-span-2 text-center text-gray-500 py-12">No se encontraron resultados.</div>';
                     return;
                 }
 
-                data.forEach(song => {
+                songList.forEach(song => {
                     const card = document.createElement('div');
                     card.className = "flex gap-4 bg-white/5 border border-white/10 p-3 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-cyan-500/40 transition-all items-center song-select-card";
                     card.onclick = () => selectSongFromSearch(song);
@@ -825,18 +826,18 @@
             for (let name in players) {
                 const p = players[name];
                 const userVol = p.volume || 0;
-                const isSinging = userVol > 0.015;
+                const isSinging = userVol > 0.08; // Umbral del 8% de volumen calibrado
 
                 if (isSinging && hasVocals) {
                     // Desplazamiento sutil por jugador para evitar solapamiento
                     const offset = (p.colorIdxOffset - (numPlayers - 1) / 2) * 12;
                     const userY = targetY + offset;
 
-                    p.history.push({ time: now, y: userY, active: true });
+                    p.history.push({ time: now, y: userY, vol: userVol, active: true });
                     p.volumeActive = true;
 
-                    // Puntuación proporcional al volumen
-                    const basePoints = Math.floor(userVol * 180);
+                    // Puntuación proporcional al volumen (max ~45 puntos/frame)
+                    const basePoints = Math.floor(userVol * 45);
                     const pointsAdded = basePoints * p.combo;
                     p.score += pointsAdded;
 
@@ -873,7 +874,7 @@
 
                 } else {
                     // No canta o no hay voz original
-                    p.history.push({ time: now, y: null, active: false });
+                    p.history.push({ time: now, y: null, vol: 0, active: false });
                     p.volumeActive = false;
 
                     if (!hasVocals) {
@@ -909,7 +910,7 @@
 
                 const volbarEl = document.getElementById(`volbar-${p.name}`);
                 if (volbarEl) {
-                    const barPct = Math.min(100, Math.round(userVol * 450));
+                    const barPct = Math.min(100, Math.round(userVol * 100)); // Escala 0-100%
                     volbarEl.style.width = barPct + '%';
                 }
             }
@@ -989,36 +990,30 @@
             }
             ctx.shadowBlur = 0; // reset blur
 
-            // Dibujar líneas de los jugadores (solo si están activos cantando)
-            ctx.lineWidth = 4;
-            const numPlayers = Object.keys(players).length;
-
+            // Dibujar líneas de los jugadores con grosor y brillo dinámico por volumen
             for (let name in players) {
                 const p = players[name];
-                let uD = false;
-                ctx.beginPath();
-                ctx.strokeStyle = p.color;
                 ctx.shadowBlur = 8;
                 ctx.shadowColor = p.color;
 
-                for (let h of p.history) {
-                    if (h.active && h.y !== null) {
-                        const x = playX + ((h.time - now) * pps);
-                        if (!uD) {
-                            ctx.moveTo(x, h.y);
-                            uD = true;
-                        } else {
-                            ctx.lineTo(x, h.y);
-                        }
-                    } else {
-                        if (uD) {
-                            ctx.stroke();
-                            ctx.beginPath();
-                            uD = false;
-                        }
+                for (let i = 1; i < p.history.length; i++) {
+                    const h1 = p.history[i - 1];
+                    const h2 = p.history[i];
+                    if (h1.active && h1.y !== null && h2.active && h2.y !== null) {
+                        const x1 = playX + ((h1.time - now) * pps);
+                        const x2 = playX + ((h2.time - now) * pps);
+                        
+                        ctx.beginPath();
+                        ctx.strokeStyle = p.color;
+                        // Grosor y brillo proporcionales al volumen del teléfono
+                        ctx.lineWidth = 1 + h2.vol * 9; 
+                        ctx.globalAlpha = 0.25 + h2.vol * 0.75;
+                        ctx.moveTo(x1, h1.y);
+                        ctx.lineTo(x2, h2.y);
+                        ctx.stroke();
                     }
                 }
-                if (uD) ctx.stroke();
+                ctx.globalAlpha = 1.0; // Resetear opacidad
             }
             ctx.shadowBlur = 0;
 
